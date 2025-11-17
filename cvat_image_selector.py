@@ -1,0 +1,1512 @@
+"""
+CVAT Image Selector
+A simple web-based UI tool to select and view images from a CVAT job using the CVAT API.
+"""
+
+from flask import Flask, render_template, request, jsonify, session, send_file
+import requests
+from requests.auth import HTTPBasicAuth
+import os
+import random
+import io
+import zipfile
+import re
+from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
+# CVAT connection details from environment
+CVAT_URL = os.getenv("CVAT_URL", "")
+CVAT_USERNAME = os.getenv("CVAT_USERNAME", "")
+CVAT_PASSWORD = os.getenv("CVAT_PASSWORD", "")
+
+
+class CVATClient:
+    """CVAT API client"""
+
+    def __init__(self, url, username, password):
+        self.url = url.rstrip('/')
+        self.username = username
+        self.password = password
+        self.auth = HTTPBasicAuth(username, password)
+
+    def test_connection(self):
+        """Test connection to CVAT server"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/users/self",
+                auth=self.auth,
+                timeout=10
+            )
+            response.raise_for_status()
+            return True, "Connected successfully"
+        except requests.exceptions.RequestException as e:
+            return False, f"Connection failed: {str(e)}"
+
+    def get_job_info(self, job_id):
+        """Get job information"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/jobs/{job_id}",
+                auth=self.auth,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get job info: {str(e)}")
+
+    def get_task_info(self, task_id):
+        """Get task information"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/tasks/{task_id}",
+                auth=self.auth,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get task info: {str(e)}")
+
+    def get_task_jobs(self, task_id):
+        """Get all jobs for a task"""
+        try:
+            # CVAT API may paginate results, so we need to get all pages
+            all_jobs = []
+            page = 1
+            page_size = 100
+
+            while True:
+                response = requests.get(
+                    f"{self.url}/api/jobs",
+                    params={
+                        'task_id': task_id,
+                        'page': page,
+                        'page_size': page_size
+                    },
+                    auth=self.auth,
+                    timeout=10
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                # Handle both paginated and non-paginated responses
+                if isinstance(data, dict):
+                    results = data.get('results', [])
+                    all_jobs.extend(results)
+
+                    # Check if there are more pages
+                    if not data.get('next'):
+                        break
+                    page += 1
+                else:
+                    # Non-paginated response (list)
+                    all_jobs = data
+                    break
+
+            return all_jobs
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get task jobs: {str(e)}")
+
+    def get_frame_metadata(self, task_id, frame_number):
+        """Get metadata for a specific frame including filename"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/tasks/{task_id}/data/meta",
+                auth=self.auth,
+                timeout=10
+            )
+            response.raise_for_status()
+            meta = response.json()
+
+            # Get the frame name from frames list
+            frames = meta.get('frames', [])
+            if frame_number < len(frames):
+                return frames[frame_number].get('name', f'frame_{frame_number}')
+            return f'frame_{frame_number}'
+        except Exception as e:
+            return f'frame_{frame_number}'
+
+    def get_task_images(self, task_id, include_filename=False):
+        """Get all images from a task"""
+        try:
+            task_data = self.get_task_info(task_id)
+            size = task_data.get('size', 0)
+
+            # Get metadata if filenames are requested
+            filenames = {}
+            if include_filename:
+                try:
+                    meta = self.get_task_metadata(task_id)
+                    frames = meta.get('frames', [])
+                    filenames = {i: frame.get('name', f'frame_{i}') for i, frame in enumerate(frames)}
+                except:
+                    pass
+
+            images = []
+            for frame_num in range(size):
+                image_data = {
+                    'frame': frame_num,
+                    'task_id': task_id,
+                    'job_id': None
+                }
+                if include_filename:
+                    image_data['filename'] = filenames.get(frame_num, f'frame_{frame_num}')
+                images.append(image_data)
+
+            return images
+        except Exception as e:
+            raise Exception(f"Failed to load task images: {str(e)}")
+
+    def get_task_metadata(self, task_id):
+        """Get task metadata including frame names"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/tasks/{task_id}/data/meta",
+                auth=self.auth,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get task metadata: {str(e)}")
+
+    def get_job_images(self, task_id, job_id, include_filename=False):
+        """Get list of images from a job"""
+        try:
+            job_data = self.get_job_info(job_id)
+            task_data = self.get_task_info(task_id)
+
+            start_frame = job_data.get('start_frame', 0)
+            stop_frame = job_data.get('stop_frame', 0)
+
+            # Get metadata if filenames are requested
+            filenames = {}
+            if include_filename:
+                try:
+                    meta = self.get_task_metadata(task_id)
+                    frames = meta.get('frames', [])
+                    filenames = {i: frame.get('name', f'frame_{i}') for i, frame in enumerate(frames)}
+                except:
+                    pass
+
+            images = []
+            for frame_num in range(start_frame, stop_frame + 1):
+                image_data = {
+                    'frame': frame_num,
+                    'task_id': task_id,
+                    'job_id': job_id
+                }
+                if include_filename:
+                    image_data['filename'] = filenames.get(frame_num, f'frame_{frame_num}')
+                images.append(image_data)
+
+            return images
+        except Exception as e:
+            raise Exception(f"Failed to load images: {str(e)}")
+
+    def download_frame(self, task_id, frame_number, quality='original'):
+        """Download a single frame from a task"""
+        try:
+            url = f"{self.url}/api/tasks/{task_id}/data"
+            params = {
+                'type': 'frame',
+                'number': frame_number,
+                'quality': quality
+            }
+
+            response = requests.get(
+                url,
+                params=params,
+                auth=self.auth,
+                timeout=30
+            )
+            response.raise_for_status()
+
+            return response.content
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to download frame {frame_number}: {str(e)}")
+
+    def get_job_annotations(self, job_id):
+        """Get annotations from a job"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/jobs/{job_id}/annotations",
+                auth=self.auth,
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get annotations for job {job_id}: {str(e)}")
+
+    def upload_job_annotations(self, job_id, annotations):
+        """Upload annotations to a job"""
+        try:
+            # Try PUT first (replaces all annotations)
+            response = requests.put(
+                f"{self.url}/api/jobs/{job_id}/annotations",
+                json=annotations,
+                auth=self.auth,
+                timeout=60,
+                params={'action': 'create'}  # Explicitly set action
+            )
+            response.raise_for_status()
+            result = response.json()
+            print(f"DEBUG: PUT response status: {response.status_code}")
+            return result
+        except requests.exceptions.RequestException as e:
+            # If PUT fails, try PATCH (merges annotations)
+            print(f"DEBUG: PUT failed, trying PATCH: {str(e)}")
+            try:
+                response = requests.patch(
+                    f"{self.url}/api/jobs/{job_id}/annotations",
+                    json=annotations,
+                    auth=self.auth,
+                    timeout=60,
+                    params={'action': 'create'}
+                )
+                response.raise_for_status()
+                result = response.json()
+                print(f"DEBUG: PATCH response status: {response.status_code}")
+                return result
+            except requests.exceptions.RequestException as e2:
+                raise Exception(f"Failed to upload annotations to job {job_id}: PUT failed: {str(e)}, PATCH failed: {str(e2)}")
+
+    def get_task_annotations(self, task_id):
+        """Get annotations from a task"""
+        try:
+            response = requests.get(
+                f"{self.url}/api/tasks/{task_id}/annotations",
+                auth=self.auth,
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get annotations for task {task_id}: {str(e)}")
+
+    def upload_task_annotations(self, task_id, annotations):
+        """Upload annotations to a task"""
+        try:
+            response = requests.put(
+                f"{self.url}/api/tasks/{task_id}/annotations",
+                json=annotations,
+                auth=self.auth,
+                timeout=60
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to upload annotations to task {task_id}: {str(e)}")
+
+    def get_task_labels(self, task_id):
+        """Get labels from a task"""
+        try:
+            task_info = self.get_task_info(task_id)
+            print(f"DEBUG: Task info type: {type(task_info)}, keys: {task_info.keys() if isinstance(task_info, dict) else 'N/A'}")
+
+            # Try different structures
+            if isinstance(task_info, dict):
+                # Try direct labels
+                labels = task_info.get('labels', [])
+                print(f"DEBUG: Found labels, type: {type(labels)}, value: {labels}")
+
+                # If labels is a dict (not a list), check if it has label objects
+                if isinstance(labels, dict):
+                    print(f"DEBUG: Labels is a dict with keys: {labels.keys()}")
+
+                    # Check if it's a URL reference
+                    if 'url' in labels and len(labels) == 1:
+                        print(f"DEBUG: Labels is a URL reference, fetching from: {labels['url']}")
+                        try:
+                            response = requests.get(labels['url'], auth=self.auth, timeout=30)
+                            response.raise_for_status()
+                            label_data = response.json()
+                            print(f"DEBUG: Fetched label data type: {type(label_data)}")
+
+                            # Extract labels from response
+                            if isinstance(label_data, dict) and 'results' in label_data:
+                                labels = label_data['results']
+                            elif isinstance(label_data, list):
+                                labels = label_data
+                            else:
+                                print(f"DEBUG: Unexpected label data structure")
+                                return {}
+                        except Exception as e:
+                            print(f"DEBUG: Failed to fetch labels from URL: {str(e)}")
+                            return {}
+                    # Try to convert dict to list of label objects
+                    elif 'results' in labels:
+                        labels = labels['results']
+                    elif all(isinstance(v, dict) and 'id' in v for v in labels.values()):
+                        labels = list(labels.values())
+                    else:
+                        print(f"DEBUG: Can't parse labels dict structure - skipping validation")
+                        return {}
+
+                if isinstance(labels, list):
+                    print(f"DEBUG: Found {len(labels)} labels in list")
+                    if labels:
+                        print(f"DEBUG: First label: {labels[0]} (type: {type(labels[0])})")
+
+                    # If labels is just a list of IDs/strings, skip validation
+                    if labels and not isinstance(labels[0], dict):
+                        print(f"DEBUG: Labels appear to be IDs/URLs, not full label objects - skipping validation")
+                        return {}
+
+                if not labels:
+                    # Try project -> labels
+                    project = task_info.get('project')
+                    if project and isinstance(project, dict):
+                        labels = project.get('labels', [])
+                        print(f"DEBUG: Got {len(labels)} labels from project")
+
+                # Return dict mapping label_id to label name
+                if labels and isinstance(labels, list) and isinstance(labels[0], dict):
+                    return {label['id']: label['name'] for label in labels}
+                else:
+                    print(f"DEBUG: Unable to extract label info - skipping validation")
+                    return {}
+            else:
+                raise Exception(f"Unexpected task_info type: {type(task_info)}")
+        except Exception as e:
+            import traceback
+            print(f"DEBUG: Full traceback:")
+            traceback.print_exc()
+            raise Exception(f"Failed to get labels for task {task_id}: {str(e)}")
+
+
+@app.route('/')
+def index():
+    """Main page"""
+    return render_template('index.html',
+                         cvat_url=CVAT_URL,
+                         cvat_username=CVAT_USERNAME)
+
+
+@app.route('/api/test-connection', methods=['POST'])
+def test_connection():
+    """Test CVAT connection"""
+    data = request.json
+    url = data.get('url', CVAT_URL)
+    username = data.get('username', CVAT_USERNAME)
+    password = data.get('password', CVAT_PASSWORD)
+
+    if not all([url, username, password]):
+        return jsonify({'success': False, 'message': 'Missing credentials'}), 400
+
+    client = CVATClient(url, username, password)
+    success, message = client.test_connection()
+
+    if success:
+        session['cvat_url'] = url
+        session['cvat_username'] = username
+        session['cvat_password'] = password
+
+    return jsonify({'success': success, 'message': message})
+
+
+@app.route('/api/load-images', methods=['POST'])
+def load_images():
+    """Load images from task/job"""
+    data = request.json
+    task_id = data.get('task_id')
+    job_id = data.get('job_id')
+
+    if not task_id:
+        return jsonify({'success': False, 'message': 'Missing task_id'}), 400
+
+    # Get credentials from session or environment
+    url = session.get('cvat_url', CVAT_URL)
+    username = session.get('cvat_username', CVAT_USERNAME)
+    password = session.get('cvat_password', CVAT_PASSWORD)
+
+    if not all([url, username, password]):
+        return jsonify({'success': False, 'message': 'Not connected to CVAT'}), 401
+
+    try:
+        client = CVATClient(url, username, password)
+
+        # If job_id is provided, load from job, otherwise load entire task
+        if job_id:
+            images = client.get_job_images(task_id, job_id, include_filename=True)
+            source = f"job {job_id}"
+        else:
+            images = client.get_task_images(task_id, include_filename=True)
+            source = f"task {task_id}"
+
+        return jsonify({
+            'success': True,
+            'images': images,
+            'count': len(images),
+            'source': source
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/get-selection', methods=['POST'])
+def get_selection():
+    """Process selected images"""
+    data = request.json
+    selected_frames = data.get('selected_frames', [])
+
+    return jsonify({
+        'success': True,
+        'count': len(selected_frames),
+        'frames': selected_frames
+    })
+
+
+@app.route('/api/random-select', methods=['POST'])
+def random_select():
+    """Randomly select N images per job from the task"""
+    data = request.json
+    task_id = data.get('task_id')
+    job_id = data.get('job_id')
+    count = data.get('count', 10)
+
+    if not task_id:
+        return jsonify({'success': False, 'message': 'Missing task_id'}), 400
+
+    # Get credentials from session or environment
+    url = session.get('cvat_url', CVAT_URL)
+    username = session.get('cvat_username', CVAT_USERNAME)
+    password = session.get('cvat_password', CVAT_PASSWORD)
+
+    if not all([url, username, password]):
+        return jsonify({'success': False, 'message': 'Not connected to CVAT'}), 401
+
+    try:
+        client = CVATClient(url, username, password)
+
+        # If job_id is provided, select from that job only
+        if job_id:
+            all_images = client.get_job_images(task_id, job_id, include_filename=True)
+
+            # Randomly select images
+            sample_count = min(count, len(all_images))
+            selected_images = random.sample(all_images, sample_count)
+
+            return jsonify({
+                'success': True,
+                'images': selected_images,
+                'count': len(selected_images),
+                'total_available': len(all_images),
+                'source': f"job {job_id}",
+                'jobs_count': 1
+            })
+        else:
+            # Get all jobs in the task
+            jobs = client.get_task_jobs(task_id)
+
+            print(f"DEBUG: Found {len(jobs)} jobs for task {task_id}")
+            for job in jobs:
+                print(f"DEBUG: Job {job.get('id')} - Status: {job.get('status', 'unknown')}")
+
+            if not jobs:
+                return jsonify({'success': False, 'message': 'No jobs found in task'}), 404
+
+            # Select N random images from EACH job
+            all_selected_images = []
+            job_summary = []
+
+            for job in jobs:
+                job_id_current = job.get('id')
+                print(f"DEBUG: Processing job {job_id_current}")
+
+                try:
+                    job_images = client.get_job_images(task_id, job_id_current, include_filename=True)
+                    print(f"DEBUG: Job {job_id_current} has {len(job_images)} images")
+
+                    # Select up to N images from this job
+                    sample_count = min(count, len(job_images))
+                    if sample_count > 0:
+                        selected_from_job = random.sample(job_images, sample_count)
+                        all_selected_images.extend(selected_from_job)
+                        print(f"DEBUG: Selected {sample_count} images from job {job_id_current}")
+
+                        job_summary.append({
+                            'job_id': job_id_current,
+                            'selected': sample_count,
+                            'total': len(job_images)
+                        })
+                except Exception as e:
+                    print(f"ERROR: Failed to process job {job_id_current}: {str(e)}")
+                    # Add to summary showing error
+                    job_summary.append({
+                        'job_id': job_id_current,
+                        'selected': 0,
+                        'total': 0,
+                        'error': str(e)
+                    })
+
+            print(f"DEBUG: Total selected images: {len(all_selected_images)}")
+
+            return jsonify({
+                'success': True,
+                'images': all_selected_images,
+                'count': len(all_selected_images),
+                'source': f"task {task_id} ({len(jobs)} jobs)",
+                'jobs_count': len(jobs),
+                'per_job_count': count,
+                'job_summary': job_summary
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/download-images', methods=['POST'])
+def download_images():
+    """Download selected images as a zip file"""
+    data = request.json
+    frames = data.get('frames', [])
+
+    if not frames:
+        return jsonify({'success': False, 'message': 'No frames selected'}), 400
+
+    # Get credentials from session or environment
+    url = session.get('cvat_url', CVAT_URL)
+    username = session.get('cvat_username', CVAT_USERNAME)
+    password = session.get('cvat_password', CVAT_PASSWORD)
+
+    if not all([url, username, password]):
+        return jsonify({'success': False, 'message': 'Not connected to CVAT'}), 401
+
+    try:
+        client = CVATClient(url, username, password)
+
+        # Create a zip file in memory
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for frame_info in frames:
+                task_id = frame_info.get('task_id')
+                frame_num = frame_info.get('frame')
+                job_id = frame_info.get('job_id')
+                filename = frame_info.get('filename')
+
+                try:
+                    # Download the frame
+                    image_data = client.download_frame(task_id, frame_num)
+
+                    # Use real filename if available, otherwise use descriptive name
+                    if filename:
+                        # Split the path to get directory and filename
+                        if '/' in filename:
+                            parts = filename.rsplit('/', 1)
+                            directory = parts[0]
+                            base_filename = parts[1]
+                            # Add job ID prefix to the filename
+                            if job_id:
+                                zip_filename = f"{directory}/{job_id}_{base_filename}"
+                            else:
+                                zip_filename = filename
+                        else:
+                            # No directory structure, just prefix the filename
+                            if job_id:
+                                zip_filename = f"{job_id}_{filename}"
+                            else:
+                                zip_filename = filename
+                    else:
+                        # Get file extension from content or default to jpg
+                        zip_filename = f"task_{task_id}_job_{job_id}_frame_{frame_num}.jpg"
+
+                    zip_file.writestr(zip_filename, image_data)
+
+                except Exception as e:
+                    # Continue with other frames even if one fails
+                    print(f"Error downloading frame {frame_num}: {str(e)}")
+                    continue
+
+        # Prepare the zip for download
+        zip_buffer.seek(0)
+
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"cvat_images_{timestamp}.zip"
+
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=zip_filename
+        )
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/test-connection-dual', methods=['POST'])
+def test_connection_dual():
+    """Test connection to source and target CVAT instances"""
+    data = request.json
+
+    source_url = data.get('source_url')
+    source_username = data.get('source_username')
+    source_password = data.get('source_password')
+
+    target_url = data.get('target_url')
+    target_username = data.get('target_username')
+    target_password = data.get('target_password')
+
+    results = {}
+
+    # Test source connection
+    if all([source_url, source_username, source_password]):
+        source_client = CVATClient(source_url, source_username, source_password)
+        success, message = source_client.test_connection()
+        results['source'] = {'success': success, 'message': message}
+    else:
+        results['source'] = {'success': False, 'message': 'Missing source credentials'}
+
+    # Test target connection
+    if all([target_url, target_username, target_password]):
+        target_client = CVATClient(target_url, target_username, target_password)
+        success, message = target_client.test_connection()
+        results['target'] = {'success': success, 'message': message}
+    else:
+        results['target'] = {'success': False, 'message': 'Missing target credentials'}
+
+    # Store credentials in session if both connections succeed
+    if results['source']['success'] and results['target']['success']:
+        session['copy_source_url'] = source_url
+        session['copy_source_username'] = source_username
+        session['copy_source_password'] = source_password
+        session['copy_target_url'] = target_url
+        session['copy_target_username'] = target_username
+        session['copy_target_password'] = target_password
+
+    return jsonify({
+        'success': results['source']['success'] and results['target']['success'],
+        'source': results['source'],
+        'target': results['target']
+    })
+
+
+@app.route('/api/preview-annotations', methods=['POST'])
+def preview_annotations():
+    """Preview annotations from source before copying"""
+    data = request.json
+    source_task_id = data.get('source_task_id')
+    source_job_id = data.get('source_job_id')
+
+    # Get credentials from session
+    source_url = session.get('copy_source_url')
+    source_username = session.get('copy_source_username')
+    source_password = session.get('copy_source_password')
+
+    if not all([source_url, source_username, source_password]):
+        return jsonify({'success': False, 'message': 'Not connected to source CVAT'}), 401
+
+    if not source_task_id:
+        return jsonify({'success': False, 'message': 'Missing source task ID'}), 400
+
+    try:
+        source_client = CVATClient(source_url, source_username, source_password)
+
+        # Get annotations
+        if source_job_id:
+            annotations = source_client.get_job_annotations(source_job_id)
+            # Get job info to know which frames belong to this job
+            job_info = source_client.get_job_info(source_job_id)
+            start_frame = job_info.get('start_frame', 0)
+            stop_frame = job_info.get('stop_frame', 0)
+        else:
+            annotations = source_client.get_task_annotations(source_task_id)
+            start_frame = None
+            stop_frame = None
+
+        # Get task metadata to map frame numbers to filenames
+        task_meta = source_client.get_task_metadata(source_task_id)
+        all_frames = task_meta.get('frames', [])
+
+        # If job level, filter frames to only those in the job
+        if source_job_id:
+            frames = all_frames[start_frame:stop_frame + 1]
+            # Create filename mapping using actual frame numbers
+            frame_to_filename = {start_frame + i: frame.get('name', f'frame_{start_frame + i}')
+                               for i, frame in enumerate(frames)}
+        else:
+            frames = all_frames
+            # Create filename mapping for all frames
+            frame_to_filename = {i: frame.get('name', f'frame_{i}') for i, frame in enumerate(frames)}
+
+        # Process annotations to include filenames
+        annotated_files = {}
+
+        # Process shapes (bounding boxes, polygons, etc.)
+        for shape in annotations.get('shapes', []):
+            frame_num = shape.get('frame', 0)
+            filename = frame_to_filename.get(frame_num, f'frame_{frame_num}')
+
+            if filename not in annotated_files:
+                annotated_files[filename] = {
+                    'frame': frame_num,
+                    'shapes': [],
+                    'tracks': []
+                }
+
+            annotated_files[filename]['shapes'].append({
+                'type': shape.get('type'),
+                'label': shape.get('label_id'),
+                'attributes': shape.get('attributes', {}),
+                'occluded': shape.get('occluded', False)
+            })
+
+        # Process tracks (video annotations)
+        for track in annotations.get('tracks', []):
+            for shape in track.get('shapes', []):
+                frame_num = shape.get('frame', 0)
+                filename = frame_to_filename.get(frame_num, f'frame_{frame_num}')
+
+                if filename not in annotated_files:
+                    annotated_files[filename] = {
+                        'frame': frame_num,
+                        'shapes': [],
+                        'tracks': []
+                    }
+
+                annotated_files[filename]['tracks'].append({
+                    'type': track.get('type'),
+                    'label': track.get('label_id'),
+                    'attributes': shape.get('attributes', {}),
+                    'occluded': shape.get('occluded', False)
+                })
+
+        # Sort by filename
+        sorted_files = dict(sorted(annotated_files.items()))
+
+        return jsonify({
+            'success': True,
+            'annotated_files': sorted_files,
+            'total_files': len(sorted_files),
+            'total_frames': len(frames),
+            'total_shapes': len(annotations.get('shapes', [])),
+            'total_tracks': len(annotations.get('tracks', [])),
+            'source': f'job {source_job_id}' if source_job_id else f'task {source_task_id}'
+        })
+
+    except Exception as e:
+        print(f"ERROR: Failed to preview annotations: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/preview-target-annotations', methods=['POST'])
+def preview_target_annotations():
+    """Preview annotations from target before copying"""
+    data = request.json
+    target_task_id = data.get('target_task_id')
+    target_job_id = data.get('target_job_id')
+
+    # Get credentials from session
+    target_url = session.get('copy_target_url')
+    target_username = session.get('copy_target_username')
+    target_password = session.get('copy_target_password')
+
+    if not all([target_url, target_username, target_password]):
+        return jsonify({'success': False, 'message': 'Not connected to target CVAT'}), 401
+
+    if not target_task_id:
+        return jsonify({'success': False, 'message': 'Missing target task ID'}), 400
+
+    try:
+        target_client = CVATClient(target_url, target_username, target_password)
+
+        # Get annotations
+        if target_job_id:
+            annotations = target_client.get_job_annotations(target_job_id)
+            # Get job info to know which frames belong to this job
+            job_info = target_client.get_job_info(target_job_id)
+            start_frame = job_info.get('start_frame', 0)
+            stop_frame = job_info.get('stop_frame', 0)
+        else:
+            annotations = target_client.get_task_annotations(target_task_id)
+            start_frame = None
+            stop_frame = None
+
+        # Get task metadata to map frame numbers to filenames
+        task_meta = target_client.get_task_metadata(target_task_id)
+        all_frames = task_meta.get('frames', [])
+
+        # If job level, filter frames to only those in the job
+        if target_job_id:
+            frames = all_frames[start_frame:stop_frame + 1]
+            # Create filename mapping using actual frame numbers
+            frame_to_filename = {start_frame + i: frame.get('name', f'frame_{start_frame + i}')
+                               for i, frame in enumerate(frames)}
+        else:
+            frames = all_frames
+            # Create filename mapping for all frames
+            frame_to_filename = {i: frame.get('name', f'frame_{i}') for i, frame in enumerate(frames)}
+
+        # Initialize all files with empty annotations
+        all_files = {}
+        for frame_num, filename in frame_to_filename.items():
+            all_files[filename] = {
+                'frame': frame_num,
+                'shapes': [],
+                'tracks': []
+            }
+
+        # Process shapes (bounding boxes, polygons, etc.)
+        for shape in annotations.get('shapes', []):
+            frame_num_job_relative = shape.get('frame', 0)
+
+            # If job level, frame numbers in annotations are job-relative, convert to task-absolute
+            if target_job_id:
+                frame_num_absolute = frame_num_job_relative + start_frame
+            else:
+                frame_num_absolute = frame_num_job_relative
+
+            filename = frame_to_filename.get(frame_num_absolute, f'frame_{frame_num_absolute}')
+
+            if filename in all_files:
+                all_files[filename]['shapes'].append({
+                    'type': shape.get('type'),
+                    'label': shape.get('label_id'),
+                    'attributes': shape.get('attributes', {}),
+                    'occluded': shape.get('occluded', False)
+                })
+
+        # Process tracks (video annotations)
+        for track in annotations.get('tracks', []):
+            for shape in track.get('shapes', []):
+                frame_num_job_relative = shape.get('frame', 0)
+
+                # If job level, frame numbers in annotations are job-relative, convert to task-absolute
+                if target_job_id:
+                    frame_num_absolute = frame_num_job_relative + start_frame
+                else:
+                    frame_num_absolute = frame_num_job_relative
+
+                filename = frame_to_filename.get(frame_num_absolute, f'frame_{frame_num_absolute}')
+
+                if filename in all_files:
+                    all_files[filename]['tracks'].append({
+                        'type': track.get('type'),
+                        'label': track.get('label_id'),
+                        'attributes': shape.get('attributes', {}),
+                        'occluded': shape.get('occluded', False)
+                    })
+
+        # Sort by filename
+        sorted_files = dict(sorted(all_files.items()))
+
+        return jsonify({
+            'success': True,
+            'annotated_files': sorted_files,
+            'total_files': len(sorted_files),
+            'total_frames': len(frames),
+            'total_shapes': len(annotations.get('shapes', [])),
+            'total_tracks': len(annotations.get('tracks', [])),
+            'source': f'job {target_job_id}' if target_job_id else f'task {target_task_id}'
+        })
+
+    except Exception as e:
+        print(f"ERROR: Failed to preview target annotations: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/preview-matches', methods=['POST'])
+def preview_matches():
+    """Preview which source files will match with target files before copying"""
+    data = request.json
+    source_task_id = data.get('source_task_id')
+    source_job_id = data.get('source_job_id')
+    target_task_id = data.get('target_task_id')
+    target_job_id = data.get('target_job_id')
+
+    # Get credentials from session
+    source_url = session.get('copy_source_url')
+    source_username = session.get('copy_source_username')
+    source_password = session.get('copy_source_password')
+    target_url = session.get('copy_target_url')
+    target_username = session.get('copy_target_username')
+    target_password = session.get('copy_target_password')
+
+    if not all([source_url, source_username, source_password, target_url, target_username, target_password]):
+        return jsonify({'success': False, 'message': 'Not connected to both CVAT instances'}), 401
+
+    if not source_task_id or not target_task_id:
+        return jsonify({'success': False, 'message': 'Missing task IDs'}), 400
+
+    try:
+        source_client = CVATClient(source_url, source_username, source_password)
+        target_client = CVATClient(target_url, target_username, target_password)
+
+        # Get metadata for both source and target
+        source_meta = source_client.get_task_metadata(source_task_id)
+        target_meta = target_client.get_task_metadata(target_task_id)
+
+        source_all_frames = source_meta.get('frames', [])
+        target_all_frames = target_meta.get('frames', [])
+
+        # Filter frames based on job if specified
+        if source_job_id:
+            source_job_info = source_client.get_job_info(source_job_id)
+            source_start = source_job_info.get('start_frame', 0)
+            source_stop = source_job_info.get('stop_frame', 0)
+            source_frames = source_all_frames[source_start:source_stop + 1]
+        else:
+            source_frames = source_all_frames
+
+        if target_job_id:
+            target_job_info = target_client.get_job_info(target_job_id)
+            target_start = target_job_info.get('start_frame', 0)
+            target_stop = target_job_info.get('stop_frame', 0)
+            target_frames = target_all_frames[target_start:target_stop + 1]
+        else:
+            target_frames = target_all_frames
+
+        # Create mapping: source_frame_num -> source_filename (base name only)
+        source_frame_to_basename = {}
+        for i, frame in enumerate(source_frames):
+            source_full_path = frame.get('name', f'frame_{i}')
+            if '/' in source_full_path:
+                source_basename = source_full_path.rsplit('/', 1)[1]
+            else:
+                source_basename = source_full_path
+            source_frame_to_basename[i] = source_basename
+
+        # Create mapping: target_filename -> target_frame_num
+        target_basename_to_frame = {}
+        target_frame_to_fullpath = {}
+        for i, frame in enumerate(target_frames):
+            target_filename = frame.get('name', f'frame_{i}')
+            target_frame_to_fullpath[i] = target_filename
+
+            if '/' in target_filename:
+                target_basename = target_filename.rsplit('/', 1)[1]
+            else:
+                target_basename = target_filename
+
+            # Remove job ID prefix (e.g., "30_") from filename
+            clean_basename = re.sub(r'^\d+_', '', target_basename)
+            target_basename_to_frame[clean_basename] = i
+
+        # Find matches
+        matched_files = []
+        unmatched_source = []
+        unmatched_target = list(target_frame_to_fullpath.values())  # Start with all target files
+
+        for source_frame_num, source_basename in source_frame_to_basename.items():
+            if source_basename in target_basename_to_frame:
+                target_frame_num = target_basename_to_frame[source_basename]
+                target_fullpath = target_frame_to_fullpath[target_frame_num]
+
+                # Get source full path
+                source_fullpath = source_frames[source_frame_num].get('name', f'frame_{source_frame_num}')
+
+                matched_files.append({
+                    'source': source_fullpath,
+                    'target': target_fullpath,
+                    'base_filename': source_basename
+                })
+
+                # Remove from unmatched target list
+                if target_fullpath in unmatched_target:
+                    unmatched_target.remove(target_fullpath)
+            else:
+                source_fullpath = source_frames[source_frame_num].get('name', f'frame_{source_frame_num}')
+                unmatched_source.append(source_fullpath)
+
+        return jsonify({
+            'success': True,
+            'matched_files': matched_files,
+            'matched_count': len(matched_files),
+            'unmatched_source': unmatched_source,
+            'unmatched_source_count': len(unmatched_source),
+            'unmatched_target': unmatched_target,
+            'unmatched_target_count': len(unmatched_target),
+            'total_source_files': len(source_frames),
+            'total_target_files': len(target_frames)
+        })
+
+    except Exception as e:
+        print(f"ERROR: Failed to preview matches: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/copy-annotations', methods=['POST'])
+def copy_annotations():
+    """Copy annotations from source to target CVAT instance with filename matching"""
+    data = request.json
+    source_task_id = data.get('source_task_id')
+    source_job_id = data.get('source_job_id')
+    target_task_id = data.get('target_task_id')
+    target_job_id = data.get('target_job_id')
+
+    # Get credentials from session
+    source_url = session.get('copy_source_url')
+    source_username = session.get('copy_source_username')
+    source_password = session.get('copy_source_password')
+    target_url = session.get('copy_target_url')
+    target_username = session.get('copy_target_username')
+    target_password = session.get('copy_target_password')
+
+    if not all([source_url, source_username, source_password, target_url, target_username, target_password]):
+        return jsonify({'success': False, 'message': 'Not connected to both CVAT instances'}), 401
+
+    if not source_task_id or not target_task_id:
+        return jsonify({'success': False, 'message': 'Missing task IDs'}), 400
+
+    try:
+        source_client = CVATClient(source_url, source_username, source_password)
+        target_client = CVATClient(target_url, target_username, target_password)
+
+        # Get source annotations and job info if needed
+        if source_job_id:
+            source_annotations = source_client.get_job_annotations(source_job_id)
+            source_job_info = source_client.get_job_info(source_job_id)
+            source_start_frame = source_job_info.get('start_frame', 0)
+            source_stop_frame = source_job_info.get('stop_frame', 0)
+            print(f"DEBUG: Source job {source_job_id} frame range: {source_start_frame} to {source_stop_frame}")
+        else:
+            source_annotations = source_client.get_task_annotations(source_task_id)
+            source_start_frame = 0
+            source_stop_frame = None
+
+        # Get metadata for both source and target
+        source_meta = source_client.get_task_metadata(source_task_id)
+        target_meta = target_client.get_task_metadata(target_task_id)
+
+        source_frames = source_meta.get('frames', [])
+        target_frames = target_meta.get('frames', [])
+
+        # Get target job frame range if uploading to a job
+        if target_job_id:
+            target_job_info = target_client.get_job_info(target_job_id)
+            target_start_frame = target_job_info.get('start_frame', 0)
+            target_stop_frame = target_job_info.get('stop_frame', 0)
+            print(f"DEBUG: Target job {target_job_id} frame range: {target_start_frame} to {target_stop_frame}")
+        else:
+            target_start_frame = 0
+            target_stop_frame = len(target_frames) - 1
+
+        print(f"DEBUG: Source has {len(source_frames)} frames, Target has {len(target_frames)} frames")
+
+        # Create mapping: source_frame_num -> source_filename (base name only)
+        # Extract just the base filename from source for matching
+        # Example: dataset_baumas/ex641/250910_s1/image_5585.jpg -> image_5585.jpg
+        import re
+        source_frame_to_basename = {}
+
+        # If source is a job, we need to filter to only frames in that job
+        if source_job_id:
+            # Get only the frames that belong to this job
+            source_job_frames = source_frames[source_start_frame:source_stop_frame + 1]
+            for i, frame in enumerate(source_job_frames):
+                # Use absolute task frame number as the key
+                absolute_frame_num = source_start_frame + i
+                source_full_path = frame.get('name', f'frame_{absolute_frame_num}')
+                # Get just the filename part
+                if '/' in source_full_path:
+                    source_basename = source_full_path.rsplit('/', 1)[1]
+                else:
+                    source_basename = source_full_path
+                source_frame_to_basename[absolute_frame_num] = source_basename
+                if i < 5:  # Only print first 5 to reduce spam
+                    print(f"DEBUG: Source mapping: frame {absolute_frame_num} -> {source_full_path} -> basename: {source_basename}")
+        else:
+            # For task-level, use all frames
+            for i, frame in enumerate(source_frames):
+                source_full_path = frame.get('name', f'frame_{i}')
+                # Get just the filename part
+                if '/' in source_full_path:
+                    source_basename = source_full_path.rsplit('/', 1)[1]
+                else:
+                    source_basename = source_full_path
+                source_frame_to_basename[i] = source_basename
+                if i < 5:  # Only print first 5 to reduce spam
+                    print(f"DEBUG: Source mapping: frame {i} -> {source_full_path} -> basename: {source_basename}")
+
+        # Create mapping: target_filename -> target_frame_num
+        # Remove job ID prefix from target filename for matching
+        target_basename_to_frame = {}
+
+        # If target is a job, we need to filter to only frames in that job
+        if target_job_id:
+            # Get only the frames that belong to this job
+            target_job_frames = target_frames[target_start_frame:target_stop_frame + 1]
+            for i, frame in enumerate(target_job_frames):
+                # Use absolute task frame number as the key
+                absolute_frame_num = target_start_frame + i
+                target_filename = frame.get('name', f'frame_{absolute_frame_num}')
+
+                if '/' in target_filename:
+                    target_basename = target_filename.rsplit('/', 1)[1]
+                else:
+                    target_basename = target_filename
+
+                # Remove job ID prefix (e.g., "30_") from filename
+                clean_basename = re.sub(r'^\d+_', '', target_basename)
+
+                # Store with absolute frame number
+                target_basename_to_frame[clean_basename] = absolute_frame_num
+                if i < 5:  # Only print first 5 to reduce spam
+                    print(f"DEBUG: Target mapping: {target_filename} -> basename: {clean_basename} -> frame {absolute_frame_num}")
+        else:
+            # For task-level, use all frames
+            for i, frame in enumerate(target_frames):
+                target_filename = frame.get('name', f'frame_{i}')
+
+                if '/' in target_filename:
+                    target_basename = target_filename.rsplit('/', 1)[1]
+                else:
+                    target_basename = target_filename
+
+                # Remove job ID prefix (e.g., "30_") from filename
+                clean_basename = re.sub(r'^\d+_', '', target_basename)
+
+                # Store just the base filename for matching
+                target_basename_to_frame[clean_basename] = i
+                if i < 5:  # Only print first 5 to reduce spam
+                    print(f"DEBUG: Target mapping: {target_filename} -> basename: {clean_basename} -> frame {i}")
+
+        # Create frame mapping: source_frame -> target_frame
+        frame_mapping = {}
+        matched_count = 0
+
+        # Check if we have generic frame names (frame_N) - if so, match by position
+        source_sample = list(source_frame_to_basename.values())[0] if source_frame_to_basename else ""
+        target_sample = list(target_basename_to_frame.keys())[0] if target_basename_to_frame else ""
+
+        use_position_matching = (source_sample.startswith('frame_') and target_sample.startswith('frame_'))
+
+        if use_position_matching:
+            print(f"DEBUG: Using position-based matching (generic frame names detected)")
+            # Match by position within job
+            source_frames_list = sorted(source_frame_to_basename.keys())
+            target_frames_list = sorted(target_basename_to_frame.values())
+
+            # Match frame-by-frame based on position
+            for i, source_frame_num in enumerate(source_frames_list):
+                if i < len(target_frames_list):
+                    target_frame_num = target_frames_list[i]
+                    frame_mapping[source_frame_num] = target_frame_num
+                    matched_count += 1
+                    if matched_count <= 5:  # Show first 5
+                        print(f"DEBUG: Position match #{i}: source frame {source_frame_num} -> target frame {target_frame_num}")
+        else:
+            # Match by filename
+            print(f"DEBUG: Using filename-based matching")
+            for source_frame_num, source_basename in source_frame_to_basename.items():
+                if source_basename in target_basename_to_frame:
+                    target_frame_num = target_basename_to_frame[source_basename]
+                    frame_mapping[source_frame_num] = target_frame_num
+                    matched_count += 1
+                    if matched_count <= 5:  # Show first 5
+                        print(f"DEBUG: Matched {source_basename}: source frame {source_frame_num} -> target frame {target_frame_num}")
+
+        print(f"DEBUG: Matched {matched_count} out of {len(source_frame_to_basename)} source frames")
+
+        if matched_count == 0:
+            # Show sample filenames to help diagnose the issue
+            print(f"\n{'='*80}")
+            print(f"ERROR: No filenames matched between source and target!")
+            print(f"{'='*80}")
+            print(f"Sample source basenames (first 10):")
+            for basename in list(source_frame_to_basename.values())[:10]:
+                print(f"  - {basename}")
+            print(f"\nSample target basenames (first 10):")
+            for basename in list(target_basename_to_frame.keys())[:10]:
+                print(f"  - {basename}")
+            print(f"{'='*80}\n")
+
+            return jsonify({
+                'success': False,
+                'message': 'No matching frames found between source and target. Check that filenames match (ignoring job ID prefix).'
+            }), 400
+
+        # Remap annotations to target frame numbers
+        remapped_annotations = {
+            'version': source_annotations.get('version', 0),
+            'tags': source_annotations.get('tags', []),
+            'shapes': [],
+            'tracks': []
+        }
+
+        skipped_shapes = 0
+        skipped_tracks = 0
+
+        # Debug: Show first few source annotation frame numbers
+        print(f"DEBUG: First 5 source annotation frames (job-relative): {[s.get('frame') for s in source_annotations.get('shapes', [])[:5]]}")
+
+        # Remap shapes
+        for shape in source_annotations.get('shapes', []):
+            source_frame_job_relative = shape.get('frame')
+
+            # If source is a job, check if frame is already absolute or job-relative
+            if source_job_id:
+                # Check if frame number is already in valid range (task-absolute)
+                if source_start_frame <= source_frame_job_relative <= source_stop_frame:
+                    # Frame is already task-absolute
+                    source_frame_absolute = source_frame_job_relative
+                    if skipped_shapes == 0:
+                        print(f"DEBUG: Frame {source_frame_job_relative} is already task-absolute (in range {source_start_frame}-{source_stop_frame})")
+                else:
+                    # Frame is job-relative, convert to task-absolute
+                    source_frame_absolute = source_frame_job_relative + source_start_frame
+                    if skipped_shapes == 0:
+                        print(f"DEBUG: Converting frame {source_frame_job_relative} (job-relative) -> {source_frame_absolute} (task-absolute)")
+            else:
+                source_frame_absolute = source_frame_job_relative
+
+            if source_frame_absolute in frame_mapping:
+                target_frame = frame_mapping[source_frame_absolute]
+                # Validate that target frame is within the target job's range
+                if target_start_frame <= target_frame <= target_stop_frame:
+                    import copy
+                    new_shape = copy.deepcopy(shape)
+
+                    # Remove fields that shouldn't be copied (server-generated)
+                    new_shape.pop('id', None)
+                    new_shape.pop('source', None)
+
+                    # IMPORTANT: CVAT expects task-absolute frame numbers even when uploading to a job!
+                    # Do NOT convert to job-relative
+                    new_shape['frame'] = target_frame
+                    if remapped_annotations['shapes'] and len(remapped_annotations['shapes']) < 3:
+                        print(f"DEBUG: Target shape frame {target_frame} (task-absolute, NOT converting to job-relative)")
+                    remapped_annotations['shapes'].append(new_shape)
+                else:
+                    print(f"DEBUG: Skipping shape - target frame {target_frame} outside job range [{target_start_frame}, {target_stop_frame}]")
+                    skipped_shapes += 1
+            else:
+                if skipped_shapes < 5:  # Only show first 5 to avoid spam
+                    source_filename = source_frames[source_frame_absolute].get('name', f'frame_{source_frame_absolute}') if source_frame_absolute < len(source_frames) else f'frame_{source_frame_absolute}'
+                    print(f"DEBUG: Skipping shape - source frame {source_frame_absolute} ({source_filename}) not in frame_mapping")
+                skipped_shapes += 1
+
+        # Remap tracks
+        import copy
+        for track in source_annotations.get('tracks', []):
+            new_track = copy.deepcopy(track)
+            new_track['shapes'] = []
+
+            # Remove server-generated fields
+            new_track.pop('id', None)
+            new_track.pop('source', None)
+
+            for shape in track.get('shapes', []):
+                source_frame_job_relative = shape.get('frame')
+
+                # If source is a job, convert job-relative frame to absolute task frame
+                if source_job_id:
+                    source_frame_absolute = source_frame_job_relative + source_start_frame
+                    print(f"DEBUG: Source track shape frame {source_frame_job_relative} (job-relative) -> {source_frame_absolute} (task-absolute)")
+                else:
+                    source_frame_absolute = source_frame_job_relative
+
+                if source_frame_absolute in frame_mapping:
+                    target_frame = frame_mapping[source_frame_absolute]
+                    # Validate that target frame is within the target job's range
+                    if target_start_frame <= target_frame <= target_stop_frame:
+                        new_shape = copy.deepcopy(shape)
+
+                        # Remove server-generated fields
+                        new_shape.pop('id', None)
+                        new_shape.pop('source', None)
+
+                        # IMPORTANT: CVAT expects task-absolute frame numbers even when uploading to a job!
+                        # Do NOT convert to job-relative
+                        new_shape['frame'] = target_frame
+                        new_track['shapes'].append(new_shape)
+                    else:
+                        print(f"DEBUG: Skipping track shape - target frame {target_frame} outside job range [{target_start_frame}, {target_stop_frame}]")
+                        skipped_tracks += 1
+                else:
+                    skipped_tracks += 1
+
+            # Only add track if it has shapes
+            if new_track['shapes']:
+                remapped_annotations['tracks'].append(new_track)
+
+        import json
+
+        print(f"DEBUG: Remapped {len(remapped_annotations['shapes'])} shapes, skipped {skipped_shapes}")
+        print(f"DEBUG: Remapped {len(remapped_annotations['tracks'])} tracks, skipped {skipped_tracks} track shapes")
+
+        # Debug: Show a sample of what we're uploading
+        if remapped_annotations['shapes']:
+            print(f"DEBUG: Sample shape being uploaded:")
+            print(json.dumps(remapped_annotations['shapes'][0], indent=2))
+        if remapped_annotations['tracks']:
+            print(f"DEBUG: Sample track being uploaded:")
+            print(json.dumps(remapped_annotations['tracks'][0], indent=2))
+
+        print(f"DEBUG: Full remapped annotations structure:")
+        print(f"  - Version: {remapped_annotations.get('version')}")
+        print(f"  - Shapes count: {len(remapped_annotations['shapes'])}")
+        print(f"  - Tracks count: {len(remapped_annotations['tracks'])}")
+        print(f"  - Tags count: {len(remapped_annotations['tags'])}")
+
+        # Show full payload being sent (first 3 shapes)
+        if remapped_annotations['shapes']:
+            print(f"DEBUG: First 3 shapes payload:")
+            print(json.dumps(remapped_annotations['shapes'][:3], indent=2))
+        else:
+            print(f"DEBUG: WARNING - No shapes to upload!")
+
+        if not remapped_annotations['shapes'] and not remapped_annotations['tracks']:
+            return jsonify({
+                'success': False,
+                'message': 'No annotations were remapped. Check that source has annotations and filenames match between source and target.'
+            }), 400
+
+        # Remap label IDs by matching label names
+        print(f"DEBUG: Remapping label IDs...")
+        try:
+            source_labels = source_client.get_task_labels(source_task_id)
+            target_labels = target_client.get_task_labels(target_task_id)
+
+            print(f"DEBUG: Source task has labels: {source_labels}")
+            print(f"DEBUG: Target task has labels: {target_labels}")
+
+            # Create name-based mapping: source_id -> target_id
+            label_id_mapping = {}
+            source_name_to_id = {name: lid for lid, name in source_labels.items()}
+            target_name_to_id = {name: lid for lid, name in target_labels.items()}
+
+            for source_id, source_name in source_labels.items():
+                if source_name in target_name_to_id:
+                    target_id = target_name_to_id[source_name]
+                    label_id_mapping[source_id] = target_id
+                    print(f"DEBUG: Label mapping: '{source_name}' {source_id} -> {target_id}")
+
+            print(f"DEBUG: Created label ID mapping: {label_id_mapping}")
+
+            # Remap label_ids in all shapes and tracks, removing unmapped ones
+            unmapped_labels = set()
+            valid_shapes = []
+            skipped_label_count = 0
+
+            for shape in remapped_annotations['shapes']:
+                old_label_id = shape.get('label_id')
+                if old_label_id in label_id_mapping:
+                    shape['label_id'] = label_id_mapping[old_label_id]
+                    valid_shapes.append(shape)
+                else:
+                    unmapped_labels.add(old_label_id)
+                    skipped_label_count += 1
+
+            remapped_annotations['shapes'] = valid_shapes
+
+            valid_tracks = []
+            for track in remapped_annotations['tracks']:
+                old_label_id = track.get('label_id')
+                if old_label_id in label_id_mapping:
+                    track['label_id'] = label_id_mapping[old_label_id]
+                    valid_tracks.append(track)
+                else:
+                    unmapped_labels.add(old_label_id)
+                    skipped_label_count += 1
+
+            remapped_annotations['tracks'] = valid_tracks
+
+            if unmapped_labels:
+                unmapped_names = [source_labels.get(lid, f'ID {lid}') for lid in unmapped_labels]
+                print(f"WARNING: Skipped {skipped_label_count} annotations with unmapped labels: {unmapped_names}")
+                print(f"WARNING: These labels don't exist in target task")
+
+            print(f"DEBUG: After label remapping: {len(remapped_annotations['shapes'])} shapes, {len(remapped_annotations['tracks'])} tracks")
+
+        except Exception as e:
+            print(f"WARNING: Could not remap labels: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+        # Upload remapped annotations to target
+        if target_job_id:
+            print(f"DEBUG: Uploading to target job {target_job_id}...")
+            print(f"DEBUG: Target job range: frames {target_start_frame}-{target_stop_frame} (task-absolute)")
+            print(f"DEBUG: Target job expects frame numbers: 0-{target_stop_frame - target_start_frame} (job-relative)")
+            print(f"DEBUG: Uploading {len(remapped_annotations['shapes'])} shapes with frame numbers:")
+            frame_numbers = [s.get('frame') for s in remapped_annotations['shapes'][:10]]
+            print(f"DEBUG: First 10 frame numbers: {frame_numbers}")
+            print(f"DEBUG: Frame number range: {min([s.get('frame') for s in remapped_annotations['shapes']])} to {max([s.get('frame') for s in remapped_annotations['shapes']])}")
+
+            result = target_client.upload_job_annotations(target_job_id, remapped_annotations)
+            print(f"DEBUG: Upload result: {result}")
+            target_desc = f'job {target_job_id}'
+
+            # Verify annotations were saved - wait a moment for CVAT to process
+            import time
+            print(f"DEBUG: Waiting 2 seconds for CVAT to process...")
+            time.sleep(2)
+
+            print(f"DEBUG: Verifying annotations were saved...")
+            verification = target_client.get_job_annotations(target_job_id)
+            verification_count = len(verification.get('shapes', []))
+            print(f"DEBUG: Verification - Found {verification_count} shapes and {len(verification.get('tracks', []))} tracks in target")
+
+            if verification_count > 0:
+                # Check what frame numbers CVAT actually saved
+                saved_frames = [s.get('frame') for s in verification.get('shapes', [])[:10]]
+                print(f"DEBUG: CVAT saved first 10 shapes with frame numbers: {saved_frames}")
+                print(f"DEBUG: Expected frame range: 0-{target_stop_frame - target_start_frame}")
+
+            if verification_count == 0:
+                print(f"ERROR: Upload succeeded but verification found 0 annotations!")
+                print(f"ERROR: This might be a CVAT API issue or permissions problem")
+                return jsonify({
+                    'success': False,
+                    'message': 'Upload succeeded but annotations are not visible in target job. Check CVAT permissions and job status.'
+                }), 500
+            elif verification_count != len(remapped_annotations['shapes']):
+                print(f"WARNING: Uploaded {len(remapped_annotations['shapes'])} shapes but only {verification_count} were saved")
+                print(f"WARNING: Some annotations may have been rejected by CVAT")
+        else:
+            print(f"DEBUG: Uploading to target task {target_task_id}...")
+            result = target_client.upload_task_annotations(target_task_id, remapped_annotations)
+            print(f"DEBUG: Upload result: {result}")
+            target_desc = f'task {target_task_id}'
+
+            # Verify annotations were saved
+            print(f"DEBUG: Verifying annotations were saved...")
+            verification = target_client.get_task_annotations(target_task_id)
+            print(f"DEBUG: Verification - Found {len(verification.get('shapes', []))} shapes and {len(verification.get('tracks', []))} tracks in target")
+
+        source_desc = f'job {source_job_id}' if source_job_id else f'task {source_task_id}'
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully copied annotations from {source_desc} to {target_desc}',
+            'annotations_count': len(remapped_annotations['shapes']) + len(remapped_annotations['tracks']),
+            'matched_frames': matched_count,
+            'source_frames': len(source_frames),
+            'target_frames': len(target_frames),
+            'skipped_annotations': skipped_shapes + skipped_tracks,
+            'source': source_desc,
+            'target': target_desc
+        })
+
+    except Exception as e:
+        print(f"ERROR: Failed to copy annotations: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+if __name__ == '__main__':
+    # Create templates directory if it doesn't exist
+    os.makedirs('templates', exist_ok=True)
+
+    print("=" * 60)
+    print("CVAT Image Selector")
+    print("=" * 60)
+    print(f"CVAT URL: {CVAT_URL or 'Not set'}")
+    print(f"Username: {CVAT_USERNAME or 'Not set'}")
+    print("=" * 60)
+    print("\nStarting server at http://localhost:5000")
+    print("Press Ctrl+C to stop\n")
+
+    app.run(debug=True, host='0.0.0.0', port=5020)

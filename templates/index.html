@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVAT Image Selector & Annotation Copier</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 30px;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #666;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #4CAF50;
+        }
+
+        .tab.active {
+            color: #4CAF50;
+            border-bottom-color: #4CAF50;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+
+        .section h2 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .image-item {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .image-item input[type="checkbox"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .image-info {
+            flex: 1;
+            font-size: 13px;
+            color: #555;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .image-info span {
+            word-break: break-all;
+        }
+
+        .selection-summary pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+
+        #selectAllBtn {
+            background: #2196F3;
+        }
+
+        #selectAllBtn:hover {
+            background: #0b7dda;
+        }
+
+        #clearSelectionBtn {
+            background: #f44336;
+        }
+
+        #clearSelectionBtn:hover {
+            background: #da190b;
+        }
+
+        #downloadBtn {
+            background: #FF9800;
+        }
+
+        #downloadBtn:hover {
+            background: #e68900;
+        }
+
+        #randomSelectBtn {
+            background: #9C27B0;
+        }
+
+        #randomSelectBtn:hover {
+            background: #7B1FA2;
+        }
+
+        .inline-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .inline-group .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        /* Dual connection layout */
+        .dual-connection {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .connection-box {
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .connection-box h3 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .connection-box.source {
+            border-color: #2196F3;
+        }
+
+        .connection-box.target {
+            border-color: #FF9800;
+        }
+
+        .connection-box.source h3 {
+            color: #2196F3;
+        }
+
+        .connection-box.target h3 {
+            color: #FF9800;
+        }
+
+        .copy-btn {
+            background: #9C27B0;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .copy-btn:hover {
+            background: #7B1FA2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CVAT Image Selector & Annotation Copier</h1>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('selector')">Image Selector</button>
+            <button class="tab" onclick="switchTab('copier')">Annotation Copier</button>
+        </div>
+
+        <!-- Tab 1: Image Selector -->
+        <div id="selector-tab" class="tab-content active">
+            <!-- Connection Section -->
+            <div class="section">
+                <h2>CVAT Connection</h2>
+                <div class="form-group">
+                    <label for="cvatUrl">CVAT URL:</label>
+                    <input type="text" id="cvatUrl" value="{{ cvat_url or 'http://35.154.159.242:8080' }}" placeholder="http://35.154.159.242:8080">
+                </div>
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" value="{{ cvat_username }}" placeholder="your_username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" placeholder="your_password">
+                </div>
+                <button onclick="testConnection()">Connect</button>
+                <div id="connectionStatus" class="status"></div>
+            </div>
+
+            <!-- Task/Job Selection -->
+            <div class="section">
+                <h2>Load Images</h2>
+                <div class="form-group">
+                    <label for="taskId">Task ID: <span style="color: red;">*</span></label>
+                    <input type="number" id="taskId" placeholder="Enter task ID (required)">
+                </div>
+                <div class="form-group">
+                    <label for="jobId">Job ID: <span style="color: #999;">(optional)</span></label>
+                    <input type="number" id="jobId" placeholder="Enter job ID (leave empty for entire task)">
+                </div>
+                <div class="button-group">
+                    <button onclick="loadImages()" id="loadBtn">Load All Images</button>
+                </div>
+                <p style="font-size: 13px; color: #666; margin-top: 10px;">
+                    <strong>Tip:</strong> Leave Job ID empty to load all images from the task, or specify a Job ID to load only images from that job.
+                </p>
+                <div id="loadStatus" class="status"></div>
+            </div>
+
+            <!-- Random Selection -->
+            <div class="section">
+                <h2>Random Selection</h2>
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label for="randomCount">Number of Images per Job:</label>
+                        <input type="number" id="randomCount" value="10" min="1" placeholder="Enter number">
+                    </div>
+                    <button onclick="randomSelect()" id="randomSelectBtn">Select Random Images</button>
+                </div>
+                <p style="font-size: 13px; color: #666; margin-top: 10px;">
+                    <strong>Note:</strong> When no Job ID is specified, this will select X random images from <strong>each job</strong> in the task.
+                </p>
+                <div id="randomStatus" class="status"></div>
+                <div id="jobSummary" style="display: none; margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+                    <h3 style="font-size: 14px; margin-bottom: 10px;">Selection Summary by Job:</h3>
+                    <div id="jobSummaryContent"></div>
+                </div>
+            </div>
+
+            <!-- Images Display -->
+            <div class="section" id="imagesSection" style="display: none;">
+                <h2>Available Images (<span id="imageCount">0</span>)</h2>
+                <div class="button-group">
+                    <button onclick="selectAll()" id="selectAllBtn">Select All</button>
+                    <button onclick="clearSelection()" id="clearSelectionBtn">Clear Selection</button>
+                    <button onclick="getSelection()">Get Selected Info</button>
+                    <button onclick="downloadImages()" id="downloadBtn">Download as ZIP</button>
+                </div>
+                <div class="images-grid" id="imagesGrid">
+                    <!-- Images will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Selection Summary -->
+            <div class="section" id="summarySection" style="display: none;">
+                <h2>Selection Summary</h2>
+                <div class="selection-summary">
+                    <h3>Selected: <span id="selectedCount">0</span> images</h3>
+                    <pre id="summaryContent"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Annotation Copier -->
+        <div id="copier-tab" class="tab-content">
+            <!-- Dual Connection Section -->
+            <div class="section">
+                <h2>Connect to CVAT Instances</h2>
+                <div class="dual-connection">
+                    <!-- Source CVAT -->
+                    <div class="connection-box source">
+                        <h3>📥 Source CVAT (with annotations)</h3>
+                        <div class="form-group">
+                            <label for="sourceUrl">CVAT URL:</label>
+                            <input type="text" id="sourceUrl" value="{{ cvat_url or 'http://35.154.159.242:8080' }}" placeholder="http://source-cvat.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="sourceUsername">Username:</label>
+                            <input type="text" id="sourceUsername" value="{{ cvat_username }}" placeholder="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="sourcePassword">Password:</label>
+                            <input type="password" id="sourcePassword" placeholder="password">
+                        </div>
+                    </div>
+
+                    <!-- Target CVAT -->
+                    <div class="connection-box target">
+                        <h3>📤 Target CVAT (without annotations)</h3>
+                        <div class="form-group">
+                            <label for="targetUrl">CVAT URL:</label>
+                            <input type="text" id="targetUrl" placeholder="http://target-cvat.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="targetUsername">Username:</label>
+                            <input type="text" id="targetUsername" placeholder="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="targetPassword">Password:</label>
+                            <input type="password" id="targetPassword" placeholder="password">
+                        </div>
+                    </div>
+                </div>
+                <button onclick="testDualConnection()" style="width: 100%; margin-top: 15px;">Connect to Both Instances</button>
+                <div id="dualConnectionStatus" class="status"></div>
+            </div>
+
+            <!-- Copy Annotations Section -->
+            <div class="section">
+                <h2>Copy Annotations</h2>
+                <div class="dual-connection">
+                    <!-- Source Task/Job -->
+                    <div class="connection-box source">
+                        <h3>📥 Source</h3>
+                        <div class="form-group">
+                            <label for="sourceTaskId">Task ID: <span style="color: red;">*</span></label>
+                            <input type="number" id="sourceTaskId" placeholder="Enter source task ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="sourceJobId">Job ID: <span style="color: #999;">(optional)</span></label>
+                            <input type="number" id="sourceJobId" placeholder="Leave empty for task-level copy">
+                        </div>
+                        <button onclick="previewAnnotations()" style="width: 100%; background: #2196F3; margin-top: 10px;">👁️ Preview Annotations</button>
+                    </div>
+
+                    <!-- Target Task/Job -->
+                    <div class="connection-box target">
+                        <h3>📤 Target</h3>
+                        <div class="form-group">
+                            <label for="targetTaskId">Task ID: <span style="color: red;">*</span></label>
+                            <input type="number" id="targetTaskId" placeholder="Enter target task ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="targetJobId">Job ID: <span style="color: #999;">(optional)</span></label>
+                            <input type="number" id="targetJobId" placeholder="Leave empty for task-level copy">
+                        </div>
+                        <button onclick="previewTargetAnnotations()" style="width: 100%; background: #FF9800; margin-top: 10px;">👁️ Preview Target</button>
+                    </div>
+                </div>
+
+                <button onclick="previewMatches()" style="background: #9C27B0; margin-bottom: 10px;">🔍 Preview Filename Matches</button>
+                <button onclick="copyAnnotations()" class="copy-btn">🔄 Copy Annotations</button>
+
+                <p style="font-size: 13px; color: #666; margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px;">
+                    <strong>⚠️ Important:</strong>
+                    <br>• If Job IDs are provided, annotations will be copied at the job level
+                    <br>• If Job IDs are empty, annotations will be copied at the task level
+                    <br>• Both source and target must be at the same level (both job or both task)
+                    <br>• The target task/job should have the same structure as the source
+                </p>
+
+                <div id="copyStatus" class="status"></div>
+
+                <!-- Source Annotation Preview Section -->
+                <div id="annotationPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 2px solid #2196F3;">
+                    <h3 style="color: #2196F3; margin-bottom: 10px;">📋 Source Annotation Preview</h3>
+                    <div id="previewSummary" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
+                        <!-- Summary will be inserted here -->
+                    </div>
+                    <div id="previewFiles" style="max-height: 400px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">
+                        <!-- File list will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Target Annotation Preview Section -->
+                <div id="targetAnnotationPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 2px solid #FF9800;">
+                    <h3 style="color: #FF9800; margin-bottom: 10px;">📋 Target Annotation Preview</h3>
+                    <div id="targetPreviewSummary" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
+                        <!-- Summary will be inserted here -->
+                    </div>
+                    <div id="targetPreviewFiles" style="max-height: 400px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">
+                        <!-- File list will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Filename Match Preview Section -->
+                <div id="matchPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 2px solid #9C27B0;">
+                    <h3 style="color: #9C27B0; margin-bottom: 10px;">🔍 Filename Match Preview</h3>
+                    <div id="matchSummary" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
+                        <!-- Summary will be inserted here -->
+                    </div>
+                    <div id="matchDetails" style="max-height: 400px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">
+                        <!-- Match details will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentImages = [];
+        let connected = false;
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            if (tabName === 'selector') {
+                document.getElementById('selector-tab').classList.add('active');
+                document.querySelectorAll('.tab')[0].classList.add('active');
+            } else if (tabName === 'copier') {
+                document.getElementById('copier-tab').classList.add('active');
+                document.querySelectorAll('.tab')[1].classList.add('active');
+            }
+        }
+
+        function showStatus(elementId, message, type) {
+            const statusDiv = document.getElementById(elementId);
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+            statusDiv.style.display = 'block';
+        }
+
+        // ===== IMAGE SELECTOR TAB FUNCTIONS =====
+
+        async function testConnection() {
+            const url = document.getElementById('cvatUrl').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!url || !username || !password) {
+                showStatus('connectionStatus', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            showStatus('connectionStatus', 'Testing connection...', 'info');
+
+            try {
+                const response = await fetch('/api/test-connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('connectionStatus', data.message, 'success');
+                    connected = true;
+                } else {
+                    showStatus('connectionStatus', data.message, 'error');
+                    connected = false;
+                }
+            } catch (error) {
+                showStatus('connectionStatus', 'Error: ' + error.message, 'error');
+                connected = false;
+            }
+        }
+
+        async function loadImages() {
+            const taskId = document.getElementById('taskId').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!taskId) {
+                showStatus('loadStatus', 'Please enter Task ID', 'error');
+                return;
+            }
+
+            const sourceText = jobId ? `from job ${jobId}` : `from entire task ${taskId}`;
+            showStatus('loadStatus', `Loading images ${sourceText}...`, 'info');
+
+            try {
+                const response = await fetch('/api/load-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId, job_id: jobId || null })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentImages = data.images;
+                    displayImages(currentImages);
+                    showStatus('loadStatus', `Loaded ${data.count} images from ${data.source}`, 'success');
+                    document.getElementById('imagesSection').style.display = 'block';
+                } else {
+                    showStatus('loadStatus', data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('loadStatus', 'Error loading images: ' + error.message, 'error');
+            }
+        }
+
+        function displayImages(images) {
+            const grid = document.getElementById('imagesGrid');
+            grid.innerHTML = '';
+            document.getElementById('imageCount').textContent = images.length;
+
+            images.forEach((img, index) => {
+                const div = document.createElement('div');
+                div.className = 'image-item';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `img-${index}`;
+                checkbox.dataset.frame = img.frame;
+                checkbox.dataset.taskId = img.task_id;
+                checkbox.dataset.jobId = img.job_id || '';
+                checkbox.dataset.filename = img.filename || `frame_${img.frame}`;
+
+                const label = document.createElement('label');
+                label.htmlFor = `img-${index}`;
+                label.className = 'image-info';
+
+                const filename = img.filename || `frame_${img.frame}`;
+                const jobIdText = img.job_id ? img.job_id : 'N/A';
+
+                label.innerHTML = `
+                    <span><strong>File:</strong> ${filename}</span>
+                    <span><strong>Frame:</strong> ${img.frame}</span>
+                    <span><strong>Job ID:</strong> ${jobIdText}</span>
+                `;
+
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                grid.appendChild(div);
+            });
+        }
+
+        function selectAll() {
+            document.querySelectorAll('#imagesGrid input[type="checkbox"]').forEach(cb => {
+                cb.checked = true;
+            });
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('#imagesGrid input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
+
+        function getSelection() {
+            const checkboxes = document.querySelectorAll('#imagesGrid input[type="checkbox"]:checked');
+            const selected = Array.from(checkboxes).map(cb => ({
+                frame: parseInt(cb.dataset.frame),
+                task_id: cb.dataset.taskId,
+                job_id: cb.dataset.jobId || null,
+                filename: cb.dataset.filename
+            }));
+
+            // Display summary
+            document.getElementById('selectedCount').textContent = selected.length;
+            document.getElementById('summaryContent').textContent = JSON.stringify(selected, null, 2);
+            document.getElementById('summarySection').style.display = 'block';
+
+            // Scroll to summary
+            document.getElementById('summarySection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function randomSelect() {
+            const taskId = document.getElementById('taskId').value;
+            const jobId = document.getElementById('jobId').value;
+            const count = parseInt(document.getElementById('randomCount').value);
+
+            if (!taskId) {
+                showStatus('randomStatus', 'Please enter Task ID first', 'error');
+                return;
+            }
+
+            if (!count || count < 1) {
+                showStatus('randomStatus', 'Please enter a valid number of images', 'error');
+                return;
+            }
+
+            const sourceText = jobId ? `${count} from job ${jobId}` : `${count} per job from task ${taskId}`;
+            showStatus('randomStatus', `Selecting ${sourceText}...`, 'info');
+
+            try {
+                const response = await fetch('/api/random-select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId, job_id: jobId || null, count: count })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentImages = data.images;
+                    displayImages(currentImages);
+
+                    // Auto-select all the random images
+                    selectAll();
+
+                    // Show job summary if multiple jobs
+                    if (data.job_summary && data.job_summary.length > 0) {
+                        displayJobSummary(data.job_summary, data.per_job_count);
+                        showStatus('randomStatus',
+                            `Selected ${data.count} total images (${data.per_job_count} per job from ${data.jobs_count} jobs)`,
+                            'success');
+                    } else {
+                        document.getElementById('jobSummary').style.display = 'none';
+                        showStatus('randomStatus',
+                            `Selected ${data.count} random images from ${data.source}`,
+                            'success');
+                    }
+
+                    document.getElementById('imagesSection').style.display = 'block';
+                } else {
+                    showStatus('randomStatus', data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('randomStatus', 'Error selecting random images: ' + error.message, 'error');
+            }
+        }
+
+        function displayJobSummary(summary, perJobCount) {
+            const summaryDiv = document.getElementById('jobSummaryContent');
+            summaryDiv.innerHTML = '';
+
+            summary.forEach(job => {
+                const jobDiv = document.createElement('div');
+                jobDiv.style.marginBottom = '5px';
+                jobDiv.style.fontSize = '13px';
+
+                if (job.error) {
+                    jobDiv.style.color = '#d32f2f';
+                    jobDiv.innerHTML = `
+                        <strong>Job ${job.job_id}:</strong>
+                        ❌ Error: ${job.error}
+                    `;
+                } else {
+                    jobDiv.innerHTML = `
+                        <strong>Job ${job.job_id}:</strong>
+                        Selected ${job.selected} out of ${job.total} images
+                        ${job.selected < perJobCount ? ' (less than requested due to availability)' : ''}
+                    `;
+                }
+                summaryDiv.appendChild(jobDiv);
+            });
+
+            document.getElementById('jobSummary').style.display = 'block';
+        }
+
+        async function downloadImages() {
+            const checkboxes = document.querySelectorAll('#imagesGrid input[type="checkbox"]:checked');
+            const selected = Array.from(checkboxes).map(cb => ({
+                frame: parseInt(cb.dataset.frame),
+                task_id: cb.dataset.taskId,
+                job_id: cb.dataset.jobId || null,
+                filename: cb.dataset.filename
+            }));
+
+            if (selected.length === 0) {
+                alert('No images selected. Please select images first.');
+                return;
+            }
+
+            // Disable download button and show loading
+            const downloadBtn = document.getElementById('downloadBtn');
+            const originalText = downloadBtn.textContent;
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = `Downloading ${selected.length} images...`;
+
+            try {
+                const response = await fetch('/api/download-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ frames: selected })
+                });
+
+                if (response.ok) {
+                    // Get the blob from response
+                    const blob = await response.blob();
+
+                    // Create a download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `cvat_images_${Date.now()}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    alert(`Successfully downloaded ${selected.length} images!`);
+                } else {
+                    const data = await response.json();
+                    alert('Download failed: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error downloading images: ' + error.message);
+            } finally {
+                // Re-enable button
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = originalText;
+            }
+        }
+
+        // ===== ANNOTATION COPIER TAB FUNCTIONS =====
+
+        async function testDualConnection() {
+            const sourceUrl = document.getElementById('sourceUrl').value;
+            const sourceUsername = document.getElementById('sourceUsername').value;
+            const sourcePassword = document.getElementById('sourcePassword').value;
+
+            const targetUrl = document.getElementById('targetUrl').value;
+            const targetUsername = document.getElementById('targetUsername').value;
+            const targetPassword = document.getElementById('targetPassword').value;
+
+            if (!sourceUrl || !sourceUsername || !sourcePassword ||
+                !targetUrl || !targetUsername || !targetPassword) {
+                showStatus('dualConnectionStatus', 'Please fill in all connection fields for both instances', 'error');
+                return;
+            }
+
+            showStatus('dualConnectionStatus', 'Testing connections...', 'info');
+
+            try {
+                const response = await fetch('/api/test-connection-dual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_url: sourceUrl,
+                        source_username: sourceUsername,
+                        source_password: sourcePassword,
+                        target_url: targetUrl,
+                        target_username: targetUsername,
+                        target_password: targetPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('dualConnectionStatus',
+                        `✅ Source: ${data.source.message}\n✅ Target: ${data.target.message}`,
+                        'success');
+                } else {
+                    let message = '';
+                    if (!data.source.success) {
+                        message += `❌ Source: ${data.source.message}\n`;
+                    } else {
+                        message += `✅ Source: ${data.source.message}\n`;
+                    }
+                    if (!data.target.success) {
+                        message += `❌ Target: ${data.target.message}`;
+                    } else {
+                        message += `✅ Target: ${data.target.message}`;
+                    }
+                    showStatus('dualConnectionStatus', message, data.success ? 'success' : 'error');
+                }
+            } catch (error) {
+                showStatus('dualConnectionStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function previewAnnotations() {
+            const sourceTaskId = document.getElementById('sourceTaskId').value;
+            const sourceJobId = document.getElementById('sourceJobId').value;
+
+            if (!sourceTaskId) {
+                showStatus('copyStatus', 'Please enter source Task ID', 'error');
+                return;
+            }
+
+            showStatus('copyStatus', 'Loading annotation preview...', 'info');
+
+            try {
+                const response = await fetch('/api/preview-annotations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_task_id: sourceTaskId,
+                        source_job_id: sourceJobId || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayAnnotationPreview(data);
+                    showStatus('copyStatus', `✅ Loaded preview from ${data.source}`, 'success');
+                } else {
+                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('copyStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        function displayAnnotationPreview(data) {
+            const previewDiv = document.getElementById('annotationPreview');
+            const summaryDiv = document.getElementById('previewSummary');
+            const filesDiv = document.getElementById('previewFiles');
+
+            // Display summary
+            summaryDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                    <div>
+                        <strong style="color: #9C27B0; font-size: 24px;">${data.total_frames}</strong>
+                        <div style="color: #666; font-size: 13px;">Total Frames</div>
+                    </div>
+                    <div>
+                        <strong style="color: #2196F3; font-size: 24px;">${data.total_files}</strong>
+                        <div style="color: #666; font-size: 13px;">Annotated Files</div>
+                    </div>
+                    <div>
+                        <strong style="color: #4CAF50; font-size: 24px;">${data.total_shapes}</strong>
+                        <div style="color: #666; font-size: 13px;">Shapes</div>
+                    </div>
+                    <div>
+                        <strong style="color: #FF9800; font-size: 24px;">${data.total_tracks}</strong>
+                        <div style="color: #666; font-size: 13px;">Tracks</div>
+                    </div>
+                </div>
+            `;
+
+            // Display files with annotations
+            let filesHtml = '<div style="font-size: 13px;">';
+
+            if (Object.keys(data.annotated_files).length === 0) {
+                filesHtml += '<p style="text-align: center; color: #999; padding: 20px;">No annotations found</p>';
+            } else {
+                Object.entries(data.annotated_files).forEach(([filename, info]) => {
+                    const shapesCount = info.shapes.length;
+                    const tracksCount = info.tracks.length;
+                    const totalAnnotations = shapesCount + tracksCount;
+
+                    filesHtml += `
+                        <div style="padding: 10px; margin-bottom: 8px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #2196F3;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <strong style="color: #333;">${filename}</strong>
+                                    <div style="color: #666; font-size: 12px; margin-top: 3px;">
+                                        Frame: ${info.frame}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 15px; padding-left: 15px;">
+                                    <div style="text-align: center;">
+                                        <strong style="color: #4CAF50;">${shapesCount}</strong>
+                                        <div style="font-size: 11px; color: #666;">Shapes</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <strong style="color: #FF9800;">${tracksCount}</strong>
+                                        <div style="font-size: 11px; color: #666;">Tracks</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            filesHtml += '</div>';
+            filesDiv.innerHTML = filesHtml;
+
+            // Show the preview section
+            previewDiv.style.display = 'block';
+
+            // Scroll to preview
+            previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function previewTargetAnnotations() {
+            const targetTaskId = document.getElementById('targetTaskId').value;
+            const targetJobId = document.getElementById('targetJobId').value;
+
+            if (!targetTaskId) {
+                showStatus('copyStatus', 'Please enter target Task ID', 'error');
+                return;
+            }
+
+            showStatus('copyStatus', 'Loading target annotation preview...', 'info');
+
+            try {
+                const response = await fetch('/api/preview-target-annotations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_task_id: targetTaskId,
+                        target_job_id: targetJobId || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayTargetAnnotationPreview(data);
+                    showStatus('copyStatus', `✅ Loaded target preview from ${data.source}`, 'success');
+                } else {
+                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('copyStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        function displayTargetAnnotationPreview(data) {
+            const previewDiv = document.getElementById('targetAnnotationPreview');
+            const summaryDiv = document.getElementById('targetPreviewSummary');
+            const filesDiv = document.getElementById('targetPreviewFiles');
+
+            // Display summary
+            summaryDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+                    <div>
+                        <strong style="color: #9C27B0; font-size: 24px;">${data.total_frames}</strong>
+                        <div style="color: #666; font-size: 13px;">Total Frames</div>
+                    </div>
+                    <div>
+                        <strong style="color: #FF9800; font-size: 24px;">${data.total_files}</strong>
+                        <div style="color: #666; font-size: 13px;">Annotated Files</div>
+                    </div>
+                    <div>
+                        <strong style="color: #4CAF50; font-size: 24px;">${data.total_shapes}</strong>
+                        <div style="color: #666; font-size: 13px;">Shapes</div>
+                    </div>
+                    <div>
+                        <strong style="color: #FF5722; font-size: 24px;">${data.total_tracks}</strong>
+                        <div style="color: #666; font-size: 13px;">Tracks</div>
+                    </div>
+                </div>
+            `;
+
+            // Display files with annotations
+            let filesHtml = '<div style="font-size: 13px;">';
+
+            if (Object.keys(data.annotated_files).length === 0) {
+                filesHtml += '<p style="text-align: center; color: #999; padding: 20px;">No annotations found</p>';
+            } else {
+                Object.entries(data.annotated_files).forEach(([filename, info]) => {
+                    const shapesCount = info.shapes.length;
+                    const tracksCount = info.tracks.length;
+                    const totalAnnotations = shapesCount + tracksCount;
+
+                    filesHtml += `
+                        <div style="padding: 10px; margin-bottom: 8px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #FF9800;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <strong style="color: #333;">${filename}</strong>
+                                    <div style="color: #666; font-size: 12px; margin-top: 3px;">
+                                        Frame: ${info.frame}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 15px; padding-left: 15px;">
+                                    <div style="text-align: center;">
+                                        <strong style="color: #4CAF50;">${shapesCount}</strong>
+                                        <div style="font-size: 11px; color: #666;">Shapes</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <strong style="color: #FF5722;">${tracksCount}</strong>
+                                        <div style="font-size: 11px; color: #666;">Tracks</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            filesHtml += '</div>';
+            filesDiv.innerHTML = filesHtml;
+
+            // Show the preview section
+            previewDiv.style.display = 'block';
+
+            // Scroll to preview
+            previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function previewMatches() {
+            const sourceTaskId = document.getElementById('sourceTaskId').value;
+            const sourceJobId = document.getElementById('sourceJobId').value;
+            const targetTaskId = document.getElementById('targetTaskId').value;
+            const targetJobId = document.getElementById('targetJobId').value;
+
+            if (!sourceTaskId || !targetTaskId) {
+                showStatus('copyStatus', 'Please enter both source and target Task IDs', 'error');
+                return;
+            }
+
+            showStatus('copyStatus', 'Loading filename matches...', 'info');
+
+            try {
+                const response = await fetch('/api/preview-matches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_task_id: sourceTaskId,
+                        source_job_id: sourceJobId || null,
+                        target_task_id: targetTaskId,
+                        target_job_id: targetJobId || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('copyStatus', '', 'success');
+                    displayMatchPreview(data);
+                } else {
+                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('copyStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        function displayMatchPreview(data) {
+            const previewDiv = document.getElementById('matchPreview');
+            const summaryDiv = document.getElementById('matchSummary');
+            const detailsDiv = document.getElementById('matchDetails');
+
+            // Create summary
+            summaryDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                    <div style="text-align: center; padding: 10px; background: #e8f5e9; border-radius: 4px;">
+                        <strong style="color: #4CAF50; font-size: 24px;">${data.matched_count}</strong>
+                        <div style="color: #666; font-size: 13px; margin-top: 5px;">✅ Matched Files</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: #fff3e0; border-radius: 4px;">
+                        <strong style="color: #FF9800; font-size: 24px;">${data.unmatched_source_count}</strong>
+                        <div style="color: #666; font-size: 13px; margin-top: 5px;">⚠️ Unmatched Source</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: #fce4ec; border-radius: 4px;">
+                        <strong style="color: #E91E63; font-size: 24px;">${data.unmatched_target_count}</strong>
+                        <div style="color: #666; font-size: 13px; margin-top: 5px;">⚠️ Unmatched Target</div>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 13px; text-align: center;">
+                    📊 Source: ${data.total_source_files} files | Target: ${data.total_target_files} files
+                </div>
+            `;
+
+            // Create details
+            let detailsHtml = '<div style="font-size: 13px;">';
+
+            // Matched files section
+            if (data.matched_files.length > 0) {
+                detailsHtml += '<h4 style="color: #4CAF50; margin: 15px 0 10px 0;">✅ Matched Files</h4>';
+                data.matched_files.forEach(match => {
+                    detailsHtml += `
+                        <div style="padding: 10px; margin-bottom: 8px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #4CAF50;">
+                            <div style="color: #2196F3; font-weight: bold; margin-bottom: 5px;">📄 ${match.base_filename}</div>
+                            <div style="font-size: 12px; color: #666; margin-left: 15px;">
+                                <div>Source: ${match.source}</div>
+                                <div>Target: ${match.target}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Unmatched source files
+            if (data.unmatched_source.length > 0) {
+                detailsHtml += '<h4 style="color: #FF9800; margin: 15px 0 10px 0;">⚠️ Unmatched Source Files (won\'t be copied)</h4>';
+                data.unmatched_source.forEach(filename => {
+                    detailsHtml += `
+                        <div style="padding: 8px; margin-bottom: 5px; background: #fff3e0; border-radius: 4px; font-size: 12px;">
+                            ${filename}
+                        </div>
+                    `;
+                });
+            }
+
+            // Unmatched target files
+            if (data.unmatched_target.length > 0) {
+                detailsHtml += '<h4 style="color: #E91E63; margin: 15px 0 10px 0;">⚠️ Unmatched Target Files (will remain empty)</h4>';
+                data.unmatched_target.forEach(filename => {
+                    detailsHtml += `
+                        <div style="padding: 8px; margin-bottom: 5px; background: #fce4ec; border-radius: 4px; font-size: 12px;">
+                            ${filename}
+                        </div>
+                    `;
+                });
+            }
+
+            detailsHtml += '</div>';
+            detailsDiv.innerHTML = detailsHtml;
+
+            // Show the preview section
+            previewDiv.style.display = 'block';
+
+            // Scroll to preview
+            previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function copyAnnotations() {
+            const sourceTaskId = document.getElementById('sourceTaskId').value;
+            const sourceJobId = document.getElementById('sourceJobId').value;
+            const targetTaskId = document.getElementById('targetTaskId').value;
+            const targetJobId = document.getElementById('targetJobId').value;
+
+            if (!sourceTaskId || !targetTaskId) {
+                showStatus('copyStatus', 'Please enter both source and target Task IDs', 'error');
+                return;
+            }
+
+            // Validate that both are at the same level
+            if ((sourceJobId && !targetJobId) || (!sourceJobId && targetJobId)) {
+                showStatus('copyStatus', 'Both source and target must be at the same level (both job or both task)', 'error');
+                return;
+            }
+
+            const level = sourceJobId ? 'job' : 'task';
+            showStatus('copyStatus', `Copying annotations at ${level} level...`, 'info');
+
+            try {
+                const response = await fetch('/api/copy-annotations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_task_id: sourceTaskId,
+                        source_job_id: sourceJobId || null,
+                        target_task_id: targetTaskId,
+                        target_job_id: targetJobId || null
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    let message = `✅ ${data.message}\n`;
+                    message += `📊 Copied ${data.annotations_count} annotations (shapes + tracks)\n`;
+                    message += `📁 Source: ${data.source_frames} frames | Target: ${data.target_frames} frames\n`;
+                    message += `🔗 Matched ${data.matched_frames} frames between source and target`;
+                    if (data.skipped_annotations > 0) {
+                        message += `\n⚠️ Skipped ${data.skipped_annotations} annotations (no matching frames)`;
+                    }
+                    showStatus('copyStatus', message, 'success');
+                } else {
+                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('copyStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
