@@ -305,6 +305,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('selector')">Image Selector</button>
             <button class="tab" onclick="switchTab('copier')">Annotation Copier</button>
+            <button class="tab" onclick="switchTab('video')">SVO/MP4 Best Selector</button>
         </div>
 
         <!-- Tab 1: Image Selector -->
@@ -516,6 +517,180 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tab 3: SVO/MP4 Best Selector -->
+        <div id="video-tab" class="tab-content">
+            <div class="section">
+                <h2>Video Frame Analysis & Selection</h2>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Upload a video file (.mp4, .avi, .mov, .svo, .mkv) to automatically detect scene changes
+                    and remove static frames with no movement. This tool uses state-of-the-art computer vision techniques
+                    to identify the most informative frames in your video.
+                </p>
+
+                <!-- Video Upload Section -->
+                <div class="form-group">
+                    <label for="videoFile">Select Video File:</label>
+                    <input type="file" id="videoFile" accept=".mp4,.avi,.mov,.svo,.mkv" style="margin-bottom: 10px;">
+                    <div style="font-size: 13px; color: #666;">
+                        Supported formats: MP4, AVI, MOV, SVO, MKV
+                    </div>
+                </div>
+
+                <!-- Analysis Method Selection -->
+                <div class="form-group">
+                    <label for="detectionMethod">Scene Detection Method:</label>
+                    <select id="detectionMethod" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="adaptive">Adaptive Threshold (Recommended)</option>
+                        <option value="histogram">Histogram Comparison</option>
+                    </select>
+                    <div style="font-size: 13px; color: #666; margin-top: 5px;">
+                        <strong>Adaptive:</strong> Uses statistical analysis for robust scene detection<br>
+                        <strong>Histogram:</strong> Compares color distributions between frames
+                    </div>
+                </div>
+
+                <!-- Parameter Controls -->
+                <div class="form-group">
+                    <label for="sceneThreshold">Scene Change Sensitivity: <span id="sceneThresholdValue">30</span>%</label>
+                    <input type="range" id="sceneThreshold" min="10" max="80" value="30"
+                           style="width: 100%;" oninput="document.getElementById('sceneThresholdValue').textContent=this.value">
+                    <div style="font-size: 13px; color: #666;">
+                        Lower = More sensitive (detects smaller changes), Higher = Less sensitive (only major scene changes)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="motionThreshold">Motion Detection Sensitivity: <span id="motionThresholdValue">2.0</span></label>
+                    <input type="range" id="motionThreshold" min="0.5" max="10.0" value="2.0" step="0.5"
+                           style="width: 100%;" oninput="document.getElementById('motionThresholdValue').textContent=this.value">
+                    <div style="font-size: 13px; color: #666;">
+                        Threshold for detecting movement between frames
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="minSceneLength">Minimum Scene Length (frames): <span id="minSceneLengthValue">15</span></label>
+                    <input type="range" id="minSceneLength" min="5" max="60" value="15"
+                           style="width: 100%;" oninput="document.getElementById('minSceneLengthValue').textContent=this.value">
+                    <div style="font-size: 13px; color: #666;">
+                        Prevents detecting very short scene changes (reduces noise)
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="targetFps">Target FPS for Analysis (optional):</label>
+                    <input type="number" id="targetFps" min="0.1" max="60" step="0.1" placeholder="Leave empty to use original FPS"
+                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <div style="font-size: 13px; color: #666;">
+                        If specified, video will be sampled at this FPS rate during analysis (e.g., 1 = 1 frame per second). Leave empty to analyze all frames.
+                    </div>
+                </div>
+
+                <button onclick="analyzeVideo()" class="button" style="margin-top: 10px;">
+                    Analyze Video
+                </button>
+
+                <div id="videoAnalysisProgress" style="display: none; margin-top: 15px; padding: 15px; background: #f0f8ff; border-radius: 4px;">
+                    <div style="color: #2196F3;">⏳ Analyzing video... This may take a few moments.</div>
+                    <div style="font-size: 13px; color: #666; margin-top: 5px;">Processing frames and detecting scenes...</div>
+                </div>
+            </div>
+
+            <!-- Analysis Results Section -->
+            <div id="videoResultsSection" class="section" style="display: none;">
+                <h2>Analysis Results</h2>
+
+                <div id="videoInfoDisplay" style="background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                    <!-- Video info will be inserted here -->
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; color: #2196F3;" id="sceneCountDisplay">0</div>
+                        <div style="color: #666; font-size: 14px;">Scene Changes Detected</div>
+                    </div>
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; color: #4CAF50;" id="motionFramesDisplay">0</div>
+                        <div style="color: #666; font-size: 14px;">Frames with Motion</div>
+                    </div>
+                    <div style="background: #ffebee; padding: 15px; border-radius: 4px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; color: #f44336;" id="staticFramesDisplay">0</div>
+                        <div style="color: #666; font-size: 14px;">Static Frames</div>
+                    </div>
+                </div>
+
+                <!-- Filter Options -->
+                <div class="form-group">
+                    <label>Frame Selection Strategy:</label>
+                    <select id="filterMode" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="scenes">Scene Changes Only</option>
+                        <option value="motion" selected>Frames with Motion Only</option>
+                        <option value="both">Scene Changes OR Motion (Union)</option>
+                    </select>
+                    <div style="font-size: 13px; color: #666; margin-top: 5px;">
+                        <strong>Scene Changes:</strong> Frames where significant visual changes occur<br>
+                        <strong>Motion:</strong> Frames with detected movement<br>
+                        <strong>Union:</strong> Combines both criteria for maximum coverage
+                    </div>
+                </div>
+
+                <button onclick="applyFrameFilter()" class="button" style="margin-top: 10px;">
+                    Apply Filter & Select Frames
+                </button>
+
+                <div id="filterResultsDisplay" style="margin-top: 15px; display: none;">
+                    <div style="background: #f0f8ff; padding: 15px; border-radius: 4px;">
+                        <div style="font-size: 18px; font-weight: bold; color: #2196F3; margin-bottom: 10px;">
+                            Selected <span id="selectedFrameCount">0</span> frames
+                        </div>
+                        <div style="font-size: 13px; color: #666;">
+                            Static frames removed: <span id="removedFrameCount">0</span>
+                        </div>
+                        <button onclick="downloadSelectedFrames()" id="downloadFramesBtn" style="margin-top: 15px; width: 100%; background: #4CAF50;">
+                            Download Selected Frames as ZIP
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+                        <div style="font-weight: bold; color: #856404;">📊 Frame Analysis Summary</div>
+                        <div id="frameSummary" style="font-size: 13px; color: #856404; margin-top: 5px;">
+                            <!-- Summary will be inserted here -->
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px; max-height: 300px; overflow-y: auto; background: #f9f9f9; padding: 10px; border-radius: 4px;">
+                        <div style="font-weight: bold; margin-bottom: 10px;">Selected Frame Indices:</div>
+                        <div id="selectedFrameList" style="font-size: 13px; line-height: 1.8;">
+                            <!-- Frame list will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendations Section -->
+            <div class="section">
+                <h2>💡 Recommendations & Tips</h2>
+                <div style="font-size: 14px; color: #666; line-height: 1.8;">
+                    <p><strong>For best results:</strong></p>
+                    <ul style="margin-left: 20px;">
+                        <li><strong>Scene Detection:</strong> Use when you want to identify major transitions in your video (e.g., camera cuts, location changes)</li>
+                        <li><strong>Motion Detection:</strong> Use to remove static frames where nothing is happening (e.g., paused video, still camera)</li>
+                        <li><strong>Adaptive Method:</strong> Works well with most video types and lighting conditions</li>
+                        <li><strong>Histogram Method:</strong> Better for videos with consistent lighting but different content</li>
+                        <li><strong>Sensitivity Tuning:</strong> Start with default values, then adjust based on your specific video content</li>
+                        <li><strong>Min Scene Length:</strong> Increase if you're getting too many false scene detections</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>State-of-the-art techniques used:</strong></p>
+                    <ul style="margin-left: 20px;">
+                        <li>Adaptive statistical thresholding for scene boundary detection</li>
+                        <li>HSV color space histogram comparison for robust scene matching</li>
+                        <li>Frame differencing with Gaussian blur for motion detection</li>
+                        <li>Morphological operations for noise reduction</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -539,6 +714,9 @@
             } else if (tabName === 'copier') {
                 document.getElementById('copier-tab').classList.add('active');
                 document.querySelectorAll('.tab')[1].classList.add('active');
+            } else if (tabName === 'video') {
+                document.getElementById('video-tab').classList.add('active');
+                document.querySelectorAll('.tab')[2].classList.add('active');
             }
         }
 
@@ -1261,6 +1439,233 @@
                 }
             } catch (error) {
                 showStatus('copyStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        // Video Analysis Tab Functions
+        let videoAnalysisData = null;
+
+        async function analyzeVideo() {
+            const fileInput = document.getElementById('videoFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a video file first');
+                return;
+            }
+
+            const detectionMethod = document.getElementById('detectionMethod').value;
+            const sceneThreshold = document.getElementById('sceneThreshold').value;
+            const motionThreshold = document.getElementById('motionThreshold').value;
+            const minSceneLength = document.getElementById('minSceneLength').value;
+            const targetFps = document.getElementById('targetFps').value;
+
+            const formData = new FormData();
+            formData.append('video', file);
+            formData.append('method', detectionMethod);
+            formData.append('scene_threshold', sceneThreshold);
+            formData.append('motion_threshold', motionThreshold);
+            formData.append('min_scene_length', minSceneLength);
+
+            // Add target FPS if specified
+            if (targetFps && targetFps > 0) {
+                formData.append('target_fps', targetFps);
+            }
+
+            document.getElementById('videoAnalysisProgress').style.display = 'block';
+            document.getElementById('videoResultsSection').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/analyze-video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    videoAnalysisData = data;
+                    displayVideoResults(data);
+                    document.getElementById('videoAnalysisProgress').style.display = 'none';
+                    document.getElementById('videoResultsSection').style.display = 'block';
+                } else {
+                    alert('Analysis failed: ' + data.message);
+                    document.getElementById('videoAnalysisProgress').style.display = 'none';
+                }
+            } catch (error) {
+                alert('Error analyzing video: ' + error.message);
+                document.getElementById('videoAnalysisProgress').style.display = 'none';
+            }
+        }
+
+        function displayVideoResults(data) {
+            const info = data.video_info;
+            let infoHtml = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    <div><strong>Total Frames:</strong> ${info.total_frames}</div>
+                    <div><strong>Original FPS:</strong> ${info.fps.toFixed(2)}</div>
+                    <div><strong>Resolution:</strong> ${info.width}x${info.height}</div>
+                    <div><strong>Duration:</strong> ${info.duration_seconds.toFixed(2)}s</div>`;
+
+            // Add analyzed frames info if target FPS was specified
+            if (info.target_fps) {
+                infoHtml += `
+                    <div><strong>Target FPS:</strong> ${info.target_fps.toFixed(2)}</div>
+                    <div><strong>Analyzed Frames:</strong> ${info.analyzed_frames} (every ${info.frame_skip} frames)</div>`;
+            }
+
+            infoHtml += `</div>`;
+
+            // Add info message if FPS downsampling was used
+            if (info.target_fps) {
+                infoHtml += `
+                    <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196F3;">
+                        <strong>ℹ️ FPS Downsampling Active:</strong> Analyzed ${info.analyzed_frames} of ${info.total_frames} frames
+                        (${((info.analyzed_frames / info.total_frames) * 100).toFixed(1)}% sampling rate)
+                    </div>`;
+            }
+
+            document.getElementById('videoInfoDisplay').innerHTML = infoHtml;
+
+            document.getElementById('sceneCountDisplay').textContent = data.scene_count;
+            document.getElementById('motionFramesDisplay').textContent = data.frames_with_motion;
+            document.getElementById('staticFramesDisplay').textContent = data.frames_without_motion;
+        }
+
+        async function applyFrameFilter() {
+            if (!videoAnalysisData) {
+                alert('Please analyze a video first');
+                return;
+            }
+
+            const filterMode = document.getElementById('filterMode').value;
+
+            try {
+                const response = await fetch('/api/filter-frames', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        motion_data: videoAnalysisData.motion_data,
+                        scene_changes: videoAnalysisData.scene_changes,
+                        filter_mode: filterMode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayFilterResults(data);
+                } else {
+                    alert('Filter failed: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error applying filter: ' + error.message);
+            }
+        }
+
+        let currentSelectedFrames = [];
+
+        function displayFilterResults(data) {
+            const totalFrames = videoAnalysisData.video_info.total_frames;
+            const selectedCount = data.count;
+            const removedCount = totalFrames - selectedCount;
+            const removalPercentage = ((removedCount / totalFrames) * 100).toFixed(1);
+
+            // Store selected frames for download
+            currentSelectedFrames = data.selected_frames;
+
+            document.getElementById('selectedFrameCount').textContent = selectedCount;
+            document.getElementById('removedFrameCount').textContent = `${removedCount} (${removalPercentage}%)`;
+
+            const summaryHtml = `
+                Original frames: ${totalFrames}<br>
+                Selected frames: ${selectedCount}<br>
+                Removed frames: ${removedCount} (${removalPercentage}%)<br>
+                Filter mode: ${data.filter_mode}
+            `;
+            document.getElementById('frameSummary').innerHTML = summaryHtml;
+
+            // Display frame list (first 100 frames if too many)
+            const framesToShow = data.selected_frames.slice(0, 100);
+            let frameListHtml = framesToShow.join(', ');
+            if (data.selected_frames.length > 100) {
+                frameListHtml += ` ... and ${data.selected_frames.length - 100} more frames`;
+            }
+            document.getElementById('selectedFrameList').textContent = frameListHtml;
+
+            document.getElementById('filterResultsDisplay').style.display = 'block';
+        }
+
+        async function downloadSelectedFrames() {
+            if (!currentSelectedFrames || currentSelectedFrames.length === 0) {
+                alert('No frames selected. Please analyze a video and apply filters first.');
+                return;
+            }
+
+            const videoFile = document.getElementById('videoFile').files[0];
+            if (!videoFile) {
+                alert('Video file is no longer available. Please re-analyze the video.');
+                return;
+            }
+
+            // Disable button and show loading
+            const downloadBtn = document.getElementById('downloadFramesBtn');
+            const originalText = downloadBtn.textContent;
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = `Downloading ${currentSelectedFrames.length} frames...`;
+
+            try {
+                const formData = new FormData();
+                formData.append('video', videoFile);
+                formData.append('frame_indices', JSON.stringify(currentSelectedFrames));
+
+                const response = await fetch('/api/download-video-frames', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // Get the blob from response
+                    const blob = await response.blob();
+
+                    // Create a download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `selected_frames_${Date.now()}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    alert(`Successfully downloaded ${currentSelectedFrames.length} frames!`);
+                } else {
+                    // Read response once and try to parse as JSON
+                    const contentType = response.headers.get('content-type');
+                    let errorMessage = 'Unknown error occurred';
+
+                    try {
+                        if (contentType && contentType.includes('application/json')) {
+                            const data = await response.json();
+                            errorMessage = data.message || 'Download failed';
+                        } else {
+                            const text = await response.text();
+                            errorMessage = text.substring(0, 200);
+                        }
+                    } catch (e) {
+                        errorMessage = `Failed to parse error: ${e.message}`;
+                    }
+
+                    alert('Download failed: ' + errorMessage);
+                }
+            } catch (error) {
+                alert('Error downloading frames: ' + error.message);
+            } finally {
+                // Re-enable button
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = originalText;
             }
         }
     </script>

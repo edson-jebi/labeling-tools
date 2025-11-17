@@ -13,6 +13,10 @@ import zipfile
 import re
 from datetime import datetime
 from dotenv import load_dotenv
+import cv2
+import numpy as np
+from pathlib import Path
+import tempfile
 
 # Load environment variables from .env file
 load_dotenv()
@@ -1493,6 +1497,403 @@ def copy_annotations():
         print(f"ERROR: Failed to copy annotations: {str(e)}")
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+class VideoFrameAnalyzer:
+    """Analyzes video files to detect scene changes and motion"""
+
+    def __init__(self):
+        self.supported_formats = ['.mp4', '.avi', '.mov', '.svo', '.mkv']
+
+    def detect_scene_changes_histogram(self, video_path, threshold=30.0, target_fps=None):
+        """
+        Detect scene changes using histogram comparison
+        Returns list of frame indices where scene changes occur
+        """
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            raise Exception(f"Cannot open video file: {video_path}")
+
+        # Calculate frame skip based on target FPS
+        video_fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_skip = 1
+        if target_fps and target_fps < video_fps:
+            frame_skip = int(video_fps / target_fps)
+
+        scene_changes = []
+        prev_hist = None
+        frame_idx = 0
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Skip frames if target FPS is set
+            if frame_idx % frame_skip != 0:
+                frame_idx += 1
+                continue
+
+            # Calculate histogram
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hist = cv2.calcHist([hsv], [0, 1], None, [50, 60], [0, 180, 0, 256])
+            cv2.normalize(hist, hist, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
+
+            if prev_hist is not None:
+                # Compare histograms using correlation
+                correlation = cv2.compareHist(prev_hist, hist, cv2.HISTCMP_CORREL)
+                # Lower correlation = more different = potential scene change
+                if correlation < (1.0 - threshold / 100.0):
+                    scene_changes.append(frame_idx)
+
+            prev_hist = hist
+            frame_idx += 1
+
+        cap.release()
+        return scene_changes
+
+    def detect_scene_changes_adaptive(self, video_path, threshold=30.0, min_scene_len=15, target_fps=None):
+        """
+        Adaptive threshold scene detection using frame difference
+        More robust for various video types
+        """
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            raise Exception(f"Cannot open video file: {video_path}")
+
+        # Calculate frame skip based on target FPS
+        video_fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_skip = 1
+        if target_fps and target_fps < video_fps:
+            frame_skip = int(video_fps / target_fps)
+
+        scene_changes = [0]  # First frame is always a scene boundary
+        prev_frame = None
+        frame_idx = 0
+        differences = []
+
+        # First pass: collect frame differences
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Skip frames if target FPS is set
+            if frame_idx % frame_skip != 0:
+                frame_idx += 1
+                continue
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.resize(gray, (640, 360))  # Resize for faster processing
+
+            if prev_frame is not None:
+                diff = cv2.absdiff(prev_frame, gray)
+                mean_diff = np.mean(diff)
+                differences.append((frame_idx, mean_diff))
+
+            prev_frame = gray
+            frame_idx += 1
+
+        cap.release()
+
+        if not differences:
+            return scene_changes
+
+        # Calculate adaptive threshold
+        diff_values = [d[1] for d in differences]
+        mean_diff = np.mean(diff_values)
+        std_diff = np.std(diff_values)
+        adaptive_threshold = mean_diff + (threshold / 100.0) * std_diff
+
+        # Find scene changes using adaptive threshold
+        last_scene_frame = 0
+        for frame_idx, diff_value in differences:
+            if diff_value > adaptive_threshold and (frame_idx - last_scene_frame) >= min_scene_len:
+                scene_changes.append(frame_idx)
+                last_scene_frame = frame_idx
+
+        return scene_changes
+
+    def detect_motion_frames(self, video_path, motion_threshold=2.0, min_motion_pixels=500, target_fps=None):
+        """
+        Detect frames with motion using frame differencing
+        Returns dict with frame indices and motion scores
+        """
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            raise Exception(f"Cannot open video file: {video_path}")
+
+        # Calculate frame skip based on target FPS
+        video_fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_skip = 1
+        if target_fps and target_fps < video_fps:
+            frame_skip = int(video_fps / target_fps)
+
+        motion_data = {}
+        prev_frame = None
+        frame_idx = 0
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Skip frames if target FPS is set
+            if frame_idx % frame_skip != 0:
+                frame_idx += 1
+                continue
+
+            # Convert to grayscale and blur to reduce noise
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.GaussianBlur(gray, (21, 21), 0)
+            gray = cv2.resize(gray, (640, 360))
+
+            if prev_frame is None:
+                prev_frame = gray
+                motion_data[frame_idx] = {'motion_score': 0.0, 'motion_pixels': 0, 'has_motion': True}  # Keep first frame
+                frame_idx += 1
+                continue
+
+            # Calculate frame difference
+            frame_diff = cv2.absdiff(prev_frame, gray)
+            thresh = cv2.threshold(frame_diff, 25, 255, cv2.THRESH_BINARY)[1]
+
+            # Dilate to fill gaps
+            thresh = cv2.dilate(thresh, None, iterations=2)
+
+            # Count motion pixels
+            motion_pixels = cv2.countNonZero(thresh)
+            motion_score = np.mean(frame_diff)
+
+            has_motion = motion_pixels > min_motion_pixels or motion_score > motion_threshold
+
+            motion_data[frame_idx] = {
+                'motion_score': float(motion_score),
+                'motion_pixels': int(motion_pixels),
+                'has_motion': bool(has_motion)
+            }
+
+            prev_frame = gray
+            frame_idx += 1
+
+        cap.release()
+        return motion_data
+
+    def get_video_info(self, video_path):
+        """Get basic video information"""
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            raise Exception(f"Cannot open video file: {video_path}")
+
+        info = {
+            'total_frames': int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+            'fps': cap.get(cv2.CAP_PROP_FPS),
+            'width': int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+            'height': int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+            'duration_seconds': 0
+        }
+
+        if info['fps'] > 0:
+            info['duration_seconds'] = info['total_frames'] / info['fps']
+
+        cap.release()
+        return info
+
+
+@app.route('/api/analyze-video', methods=['POST'])
+def analyze_video():
+    """Analyze video file for scene changes and motion"""
+    if 'video' not in request.files:
+        return jsonify({'success': False, 'message': 'No video file uploaded'}), 400
+
+    video_file = request.files['video']
+    if video_file.filename == '':
+        return jsonify({'success': False, 'message': 'No video file selected'}), 400
+
+    # Get analysis parameters
+    method = request.form.get('method', 'adaptive')
+    scene_threshold = float(request.form.get('scene_threshold', 30.0))
+    motion_threshold = float(request.form.get('motion_threshold', 2.0))
+    min_scene_length = int(request.form.get('min_scene_length', 15))
+    min_motion_pixels = int(request.form.get('min_motion_pixels', 500))
+    target_fps = request.form.get('target_fps')
+    if target_fps:
+        target_fps = float(target_fps)
+
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video_file.filename).suffix) as tmp_file:
+            video_file.save(tmp_file.name)
+            tmp_path = tmp_file.name
+
+        analyzer = VideoFrameAnalyzer()
+
+        # Get video info
+        video_info = analyzer.get_video_info(tmp_path)
+
+        # Detect scene changes
+        if method == 'histogram':
+            scene_changes = analyzer.detect_scene_changes_histogram(tmp_path, scene_threshold, target_fps)
+        else:  # adaptive
+            scene_changes = analyzer.detect_scene_changes_adaptive(tmp_path, scene_threshold, min_scene_length, target_fps)
+
+        # Detect motion
+        motion_data = analyzer.detect_motion_frames(tmp_path, motion_threshold, min_motion_pixels, target_fps)
+
+        # Calculate statistics
+        frames_with_motion = sum(1 for data in motion_data.values() if data['has_motion'])
+        frames_without_motion = len(motion_data) - frames_with_motion
+
+        # Calculate analyzed frame info
+        analyzed_frames = len(motion_data)
+        if target_fps:
+            video_fps = video_info['fps']
+            frame_skip = int(video_fps / target_fps) if target_fps < video_fps else 1
+            video_info['analyzed_frames'] = analyzed_frames
+            video_info['frame_skip'] = frame_skip
+            video_info['target_fps'] = target_fps
+            video_info['original_fps'] = video_fps
+        else:
+            video_info['analyzed_frames'] = video_info['total_frames']
+
+        # Clean up
+        os.unlink(tmp_path)
+
+        return jsonify({
+            'success': True,
+            'video_info': video_info,
+            'scene_changes': scene_changes,
+            'scene_count': len(scene_changes),
+            'motion_data': motion_data,
+            'frames_with_motion': frames_with_motion,
+            'frames_without_motion': frames_without_motion,
+            'method': method
+        })
+
+    except Exception as e:
+        # Clean up on error
+        if 'tmp_path' in locals() and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/filter-frames', methods=['POST'])
+def filter_frames():
+    """Filter frames based on scene changes and motion detection"""
+    data = request.json
+
+    motion_data = data.get('motion_data', {})
+    scene_changes = data.get('scene_changes', [])
+    filter_mode = data.get('filter_mode', 'motion')  # 'motion', 'scenes', 'both'
+
+    selected_frames = []
+
+    if filter_mode == 'scenes':
+        # Select frames at scene boundaries
+        selected_frames = scene_changes
+    elif filter_mode == 'motion':
+        # Select frames with motion
+        selected_frames = [int(frame_idx) for frame_idx, data in motion_data.items() if data.get('has_motion', False)]
+    elif filter_mode == 'both':
+        # Select frames that are either scene changes OR have motion
+        motion_frames = set(int(frame_idx) for frame_idx, data in motion_data.items() if data.get('has_motion', False))
+        scene_frames = set(scene_changes)
+        selected_frames = sorted(list(motion_frames | scene_frames))
+
+    return jsonify({
+        'success': True,
+        'selected_frames': selected_frames,
+        'count': len(selected_frames),
+        'filter_mode': filter_mode
+    })
+
+
+@app.route('/api/download-video-frames', methods=['POST'])
+def download_video_frames():
+    """Extract and download selected frames from video as ZIP file"""
+    if 'video' not in request.files:
+        return jsonify({'success': False, 'message': 'No video file uploaded'}), 400
+
+    video_file = request.files['video']
+    if video_file.filename == '':
+        return jsonify({'success': False, 'message': 'No video file selected'}), 400
+
+    # Get selected frame indices
+    try:
+        import json
+        frame_indices_str = request.form.get('frame_indices', '[]')
+        frame_indices = json.loads(frame_indices_str)
+        frame_indices = [int(idx) for idx in frame_indices]
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Invalid frame indices: {str(e)}'}), 400
+
+    if not frame_indices:
+        return jsonify({'success': False, 'message': 'No frames selected'}), 400
+
+    try:
+        # Save uploaded video temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(video_file.filename).suffix) as tmp_video:
+            video_file.save(tmp_video.name)
+            tmp_video_path = tmp_video.name
+
+        # Open video file
+        cap = cv2.VideoCapture(tmp_video_path)
+        if not cap.isOpened():
+            os.unlink(tmp_video_path)
+            return jsonify({'success': False, 'message': 'Cannot open video file'}), 500
+
+        # Create a ZIP file in memory
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+            for frame_idx in frame_indices:
+                if frame_idx >= total_frames:
+                    continue
+
+                # Seek to the specific frame
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+
+                if not ret:
+                    print(f"Warning: Could not read frame {frame_idx}")
+                    continue
+
+                # Encode frame as JPEG
+                success, buffer = cv2.imencode('.jpg', frame)
+                if not success:
+                    print(f"Warning: Could not encode frame {frame_idx}")
+                    continue
+
+                # Add to ZIP with padded filename for proper sorting
+                filename = f"frame_{frame_idx:06d}.jpg"
+                zip_file.writestr(filename, buffer.tobytes())
+
+        cap.release()
+        os.unlink(tmp_video_path)
+
+        # Prepare ZIP for download
+        zip_buffer.seek(0)
+
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = f"selected_frames_{timestamp}.zip"
+
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=zip_filename
+        )
+
+    except Exception as e:
+        # Clean up on error
+        if 'tmp_video_path' in locals() and os.path.exists(tmp_video_path):
+            os.unlink(tmp_video_path)
+        if 'cap' in locals():
+            cap.release()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
