@@ -23,18 +23,32 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
+# Determine which docker compose command to use
+if command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+elif docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+else
+    echo "Error: Neither 'docker-compose' nor 'docker compose' is available."
+    echo "Please install Docker Compose."
+    exit 1
+fi
+
+echo -e "${YELLOW}Using: $COMPOSE_CMD${NC}"
+echo ""
+
 # Parse command line arguments
 ACTION=${1:-"up"}
 
 case $ACTION in
     build)
         echo -e "${YELLOW}Building Docker image...${NC}"
-        docker-compose build
+        $COMPOSE_CMD build
         echo -e "${GREEN}Build complete!${NC}"
         ;;
     up|start)
         echo -e "${YELLOW}Starting container on port 1504...${NC}"
-        docker-compose up -d
+        $COMPOSE_CMD up -d
         echo ""
         echo -e "${GREEN}Container started!${NC}"
         echo "Access the application at: http://localhost:1504"
@@ -44,25 +58,25 @@ case $ACTION in
         ;;
     down|stop)
         echo -e "${YELLOW}Stopping container...${NC}"
-        docker-compose down
+        $COMPOSE_CMD down
         echo -e "${GREEN}Container stopped.${NC}"
         ;;
     restart)
         echo -e "${YELLOW}Restarting container...${NC}"
-        docker-compose restart
+        $COMPOSE_CMD restart
         echo -e "${GREEN}Container restarted.${NC}"
         ;;
     logs)
-        docker-compose logs -f
+        $COMPOSE_CMD logs -f
         ;;
     status)
-        docker-compose ps
+        $COMPOSE_CMD ps
         ;;
     rebuild)
         echo -e "${YELLOW}Rebuilding and restarting container...${NC}"
-        docker-compose down
-        docker-compose build --no-cache
-        docker-compose up -d
+        $COMPOSE_CMD down
+        $COMPOSE_CMD build --no-cache
+        $COMPOSE_CMD up -d
         echo -e "${GREEN}Container rebuilt and started!${NC}"
         echo "Access the application at: http://localhost:1504"
         ;;
