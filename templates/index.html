@@ -358,14 +358,61 @@
                         <input type="number" id="randomCount" value="10" min="1" placeholder="Enter number">
                     </div>
                     <button onclick="randomSelect()" id="randomSelectBtn">Select Random Images</button>
+                    <button onclick="debugLocalTask()" style="background: #607D8B; margin-left: 10px;">Debug Local Task</button>
                 </div>
                 <p style="font-size: 13px; color: #666; margin-top: 10px;">
                     <strong>Note:</strong> When no Job ID is specified, this will select X random images from <strong>each job</strong> in the task.
                 </p>
+
+                <!-- Duplicate Check Option -->
+                <div style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; border: 1px solid #ffcc80;">
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
+                        <input type="checkbox" id="enableDuplicateCheck" style="margin-right: 10px; width: 18px; height: 18px;"
+                               onchange="toggleDuplicateCheckOptions()">
+                        <strong>Check for duplicates in another CVAT instance</strong>
+                    </label>
+
+                    <div id="duplicateCheckOptions" style="display: none;">
+                        <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
+                            Connect to another CVAT instance to exclude images that already exist there.
+                        </p>
+                        <div class="form-group">
+                            <label for="checkCvatUrl">CVAT URL to check:</label>
+                            <input type="text" id="checkCvatUrl" placeholder="http://other-cvat.com:8080">
+                        </div>
+                        <div class="form-group">
+                            <label for="checkUsername">Username:</label>
+                            <input type="text" id="checkUsername" placeholder="username">
+                        </div>
+                        <div class="form-group">
+                            <label for="checkPassword">Password:</label>
+                            <input type="password" id="checkPassword" placeholder="password">
+                        </div>
+                        <div class="form-group">
+                            <label for="checkTaskId">Task ID to check against:</label>
+                            <input type="number" id="checkTaskId" placeholder="Task ID containing existing images">
+                            <div style="font-size: 12px; color: #666; margin-top: 3px;">
+                                Images are matched by filename (ignoring path and job ID prefixes)
+                            </div>
+                        </div>
+                        <button onclick="testDuplicateCheckConnection()" style="background: #FF9800; margin-top: 5px;">
+                            Test Connection
+                        </button>
+                        <button onclick="debugRemoteTask()" style="background: #9C27B0; margin-top: 5px; margin-left: 10px;">
+                            Debug Remote Task (Console)
+                        </button>
+                        <div id="duplicateCheckConnectionStatus" class="status"></div>
+                    </div>
+                </div>
+
                 <div id="randomStatus" class="status"></div>
                 <div id="jobSummary" style="display: none; margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
                     <h3 style="font-size: 14px; margin-bottom: 10px;">Selection Summary by Job:</h3>
                     <div id="jobSummaryContent"></div>
+                </div>
+                <div id="duplicateSummary" style="display: none; margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 4px; border-left: 4px solid #4CAF50;">
+                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #2e7d32;">Duplicate Check Results:</h3>
+                    <div id="duplicateSummaryContent"></div>
                 </div>
             </div>
 
@@ -751,8 +798,10 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus('connectionStatus', data.message, 'success');
+                    showStatus('connectionStatus', `${data.message} | Connected to: ${url}`, 'success');
                     connected = true;
+                    // Store the connected URL for reference
+                    window.connectedCvatUrl = url;
                 } else {
                     showStatus('connectionStatus', data.message, 'error');
                     connected = false;
@@ -881,11 +930,46 @@
             const sourceText = jobId ? `${count} from job ${jobId}` : `${count} per job from task ${taskId}`;
             showStatus('randomStatus', `Selecting ${sourceText}...`, 'info');
 
+            // Check if duplicate check is enabled
+            const enableDuplicateCheck = document.getElementById('enableDuplicateCheck').checked;
+            let duplicateCheckParams = null;
+
+            if (enableDuplicateCheck) {
+                const checkCvatUrl = document.getElementById('checkCvatUrl').value;
+                const checkUsername = document.getElementById('checkUsername').value;
+                const checkPassword = document.getElementById('checkPassword').value;
+                const checkTaskId = document.getElementById('checkTaskId').value;
+
+                if (!checkCvatUrl || !checkUsername || !checkPassword || !checkTaskId) {
+                    showStatus('randomStatus', 'Please fill in all duplicate check fields', 'error');
+                    return;
+                }
+
+                duplicateCheckParams = {
+                    check_url: checkCvatUrl,
+                    check_username: checkUsername,
+                    check_password: checkPassword,
+                    check_task_id: checkTaskId
+                };
+
+                showStatus('randomStatus', `Selecting ${sourceText} and checking for duplicates...`, 'info');
+            }
+
             try {
+                const requestBody = {
+                    task_id: taskId,
+                    job_id: jobId || null,
+                    count: count
+                };
+
+                if (duplicateCheckParams) {
+                    requestBody.duplicate_check = duplicateCheckParams;
+                }
+
                 const response = await fetch('/api/random-select', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ task_id: taskId, job_id: jobId || null, count: count })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const data = await response.json();
@@ -910,13 +994,175 @@
                             'success');
                     }
 
+                    // Show duplicate check summary if applicable
+                    if (data.duplicate_check_summary) {
+                        displayDuplicateSummary(data.duplicate_check_summary);
+                    } else {
+                        document.getElementById('duplicateSummary').style.display = 'none';
+                    }
+
                     document.getElementById('imagesSection').style.display = 'block';
                 } else {
-                    showStatus('randomStatus', data.message, 'error');
+                    // Show detailed error message including connection URL if available
+                    let errorMsg = data.message;
+                    if (data.connection_url) {
+                        errorMsg += `\n\nConnected CVAT: ${data.connection_url}`;
+                    }
+                    showStatus('randomStatus', errorMsg, 'error');
                 }
             } catch (error) {
                 showStatus('randomStatus', 'Error selecting random images: ' + error.message, 'error');
             }
+        }
+
+        function toggleDuplicateCheckOptions() {
+            const checkbox = document.getElementById('enableDuplicateCheck');
+            const options = document.getElementById('duplicateCheckOptions');
+            options.style.display = checkbox.checked ? 'block' : 'none';
+        }
+
+        async function debugLocalTask() {
+            const taskId = document.getElementById('taskId').value;
+
+            if (!taskId) {
+                showStatus('randomStatus', 'Please enter a Task ID first', 'error');
+                return;
+            }
+
+            showStatus('randomStatus', 'Debugging local task... Check server console for details', 'info');
+
+            try {
+                const response = await fetch('/api/debug-local-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: taskId })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('=== LOCAL TASK DEBUG INFO ===');
+                    console.log('Task Info:', data.task_info);
+                    console.log('Jobs Count:', data.jobs_count);
+                    console.log('Jobs:', data.jobs);
+                    console.log('Total Frames:', data.total_frames);
+                    console.log('Sample Filenames:', data.sample_filenames);
+                    console.log('==============================');
+
+                    let statusMsg = `Local Task "${data.task_info.name}" - ${data.jobs_count} jobs, ${data.total_frames} frames. Check server console!`;
+                    showStatus('randomStatus', statusMsg, 'success');
+                } else {
+                    showStatus('randomStatus', 'Debug failed: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('randomStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function debugRemoteTask() {
+            const checkCvatUrl = document.getElementById('checkCvatUrl').value;
+            const checkUsername = document.getElementById('checkUsername').value;
+            const checkPassword = document.getElementById('checkPassword').value;
+            const checkTaskId = document.getElementById('checkTaskId').value;
+
+            if (!checkCvatUrl || !checkUsername || !checkPassword || !checkTaskId) {
+                showStatus('duplicateCheckConnectionStatus', 'Please fill in all fields including Task ID', 'error');
+                return;
+            }
+
+            showStatus('duplicateCheckConnectionStatus', 'Debugging remote task... Check server console for details', 'info');
+
+            try {
+                const response = await fetch('/api/debug-remote-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: checkCvatUrl,
+                        username: checkUsername,
+                        password: checkPassword,
+                        task_id: checkTaskId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('=== REMOTE TASK DEBUG INFO ===');
+                    console.log('Task Info:', data.task_info);
+                    console.log('Jobs Count:', data.jobs_count);
+                    console.log('Jobs:', data.jobs);
+                    console.log('Total Frames:', data.total_frames);
+                    console.log('Sample Filenames:', data.sample_filenames);
+                    console.log('==============================');
+
+                    let statusMsg = `✅ Task "${data.task_info.name}" - ${data.jobs_count} jobs, ${data.total_frames} frames. Check server console for details.`;
+                    showStatus('duplicateCheckConnectionStatus', statusMsg, 'success');
+                } else {
+                    showStatus('duplicateCheckConnectionStatus', '❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('duplicateCheckConnectionStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        async function testDuplicateCheckConnection() {
+            const checkCvatUrl = document.getElementById('checkCvatUrl').value;
+            const checkUsername = document.getElementById('checkUsername').value;
+            const checkPassword = document.getElementById('checkPassword').value;
+
+            if (!checkCvatUrl || !checkUsername || !checkPassword) {
+                showStatus('duplicateCheckConnectionStatus', 'Please fill in URL, username and password', 'error');
+                return;
+            }
+
+            showStatus('duplicateCheckConnectionStatus', 'Testing connection...', 'info');
+
+            try {
+                const response = await fetch('/api/test-connection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: checkCvatUrl,
+                        username: checkUsername,
+                        password: checkPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('duplicateCheckConnectionStatus', '✅ ' + data.message, 'success');
+                } else {
+                    showStatus('duplicateCheckConnectionStatus', '❌ ' + data.message, 'error');
+                }
+            } catch (error) {
+                showStatus('duplicateCheckConnectionStatus', 'Error: ' + error.message, 'error');
+            }
+        }
+
+        function displayDuplicateSummary(summary) {
+            const summaryDiv = document.getElementById('duplicateSummaryContent');
+            const requestedCount = summary.requested_count || summary.requested_per_job || 'N/A';
+            const duplicatesSkipped = summary.duplicates_skipped || summary.duplicates_found || 0;
+
+            summaryDiv.innerHTML = `
+                <div style="font-size: 13px;">
+                    <div><strong>Total candidates in pool:</strong> ${summary.total_candidates}</div>
+                    <div><strong>Requested per job:</strong> ${requestedCount}</div>
+                    <div><strong>Duplicates skipped:</strong> ${duplicatesSkipped}</div>
+                    <div><strong>Unique images selected:</strong> ${summary.unique_selected}</div>
+                    ${duplicatesSkipped > 0 ?
+                        `<div style="margin-top: 10px; color: #666;">
+                            <strong>Skipped duplicate filenames:</strong><br>
+                            <div style="max-height: 100px; overflow-y: auto; font-size: 12px; background: white; padding: 5px; border-radius: 4px; margin-top: 5px;">
+                                ${summary.duplicate_filenames.slice(0, 20).join('<br>')}
+                                ${summary.duplicate_filenames.length > 20 ? `<br>... and ${summary.duplicate_filenames.length - 20} more` : ''}
+                            </div>
+                        </div>` : ''
+                    }
+                </div>
+            `;
+            document.getElementById('duplicateSummary').style.display = 'block';
         }
 
         function displayJobSummary(summary, perJobCount) {
@@ -935,10 +1181,13 @@
                         ❌ Error: ${job.error}
                     `;
                 } else {
+                    const duplicatesInfo = job.duplicates_skipped ? ` (${job.duplicates_skipped} duplicates skipped)` : '';
+                    const shortfall = job.requested ? job.requested - job.selected : perJobCount - job.selected;
+                    const shortfallInfo = shortfall > 0 ? ` <span style="color: #dc3545;">(${shortfall} short - not enough unique images)</span>` : '';
+
                     jobDiv.innerHTML = `
                         <strong>Job ${job.job_id}:</strong>
-                        Selected ${job.selected} out of ${job.total} images
-                        ${job.selected < perJobCount ? ' (less than requested due to availability)' : ''}
+                        Selected ${job.selected} / ${job.total} images${duplicatesInfo}${shortfallInfo}
                     `;
                 }
                 summaryDiv.appendChild(jobDiv);

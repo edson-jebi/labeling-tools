@@ -81,8 +81,32 @@ class CVATClient:
     def get_task_jobs(self, task_id):
         """Get all jobs for a task"""
         try:
-            # CVAT API may paginate results, so we need to get all pages
             all_jobs = []
+
+            # First try: Get jobs via task endpoint (works in newer CVAT versions)
+            try:
+                response = requests.get(
+                    f"{self.url}/api/tasks/{task_id}/jobs",
+                    auth=self.auth,
+                    timeout=10
+                )
+                response.raise_for_status()
+                data = response.json()
+                print(f"DEBUG: /api/tasks/{task_id}/jobs response type: {type(data)}")
+
+                if isinstance(data, dict):
+                    all_jobs = data.get('results', [])
+                    print(f"DEBUG: Found {len(all_jobs)} jobs via tasks/jobs endpoint (paginated)")
+                elif isinstance(data, list):
+                    all_jobs = data
+                    print(f"DEBUG: Found {len(all_jobs)} jobs via tasks/jobs endpoint (list)")
+
+                if all_jobs:
+                    return all_jobs
+            except Exception as e:
+                print(f"DEBUG: /api/tasks/{task_id}/jobs failed: {str(e)}, trying /api/jobs")
+
+            # Second try: Get jobs via /api/jobs with task_id filter
             page = 1
             page_size = 100
 
@@ -99,11 +123,13 @@ class CVATClient:
                 )
                 response.raise_for_status()
                 data = response.json()
+                print(f"DEBUG: /api/jobs response type: {type(data)}, keys: {data.keys() if isinstance(data, dict) else 'N/A'}")
 
                 # Handle both paginated and non-paginated responses
                 if isinstance(data, dict):
                     results = data.get('results', [])
                     all_jobs.extend(results)
+                    print(f"DEBUG: Page {page} returned {len(results)} jobs, total so far: {len(all_jobs)}")
 
                     # Check if there are more pages
                     if not data.get('next'):
@@ -112,8 +138,56 @@ class CVATClient:
                 else:
                     # Non-paginated response (list)
                     all_jobs = data
+                    print(f"DEBUG: Non-paginated response with {len(all_jobs)} jobs")
                     break
 
+            # Third try: Extract jobs from task info segments (older CVAT versions)
+            if not all_jobs:
+                print(f"DEBUG: No jobs found via API, trying to extract from task info...")
+                task_info = self.get_task_info(task_id)
+                print(f"DEBUG: Task info keys: {task_info.keys()}")
+
+                # Check for 'jobs' field in task info
+                if 'jobs' in task_info:
+                    jobs_data = task_info['jobs']
+                    print(f"DEBUG: Found 'jobs' in task info, type: {type(jobs_data)}")
+                    if isinstance(jobs_data, list):
+                        all_jobs = jobs_data
+                    elif isinstance(jobs_data, dict) and 'results' in jobs_data:
+                        all_jobs = jobs_data['results']
+
+                # Check for 'segments' field (older CVAT versions store job info here)
+                if not all_jobs and 'segments' in task_info:
+                    segments = task_info['segments']
+                    print(f"DEBUG: Found 'segments' in task info: {segments}")
+                    for segment in segments:
+                        # Each segment has jobs
+                        if 'jobs' in segment:
+                            for job in segment['jobs']:
+                                all_jobs.append(job)
+                        elif 'id' in segment:
+                            # Segment itself might be the job
+                            all_jobs.append(segment)
+
+                # If still no jobs, create a synthetic job from task data
+                if not all_jobs:
+                    print(f"DEBUG: Creating synthetic job from task data...")
+                    # Get task size to determine frame range
+                    size = task_info.get('size', 0)
+                    if size > 0:
+                        # Create a synthetic job covering all frames
+                        synthetic_job = {
+                            'id': None,  # Will be handled specially
+                            'task_id': task_id,
+                            'start_frame': 0,
+                            'stop_frame': size - 1,
+                            'status': 'annotation',
+                            'synthetic': True
+                        }
+                        all_jobs = [synthetic_job]
+                        print(f"DEBUG: Created synthetic job covering frames 0-{size-1}")
+
+            print(f"DEBUG: Total jobs found for task {task_id}: {len(all_jobs)}")
             return all_jobs
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to get task jobs: {str(e)}")
@@ -469,13 +543,11 @@ def get_selection():
     })
 
 
-@app.route('/api/random-select', methods=['POST'])
-def random_select():
-    """Randomly select N images per job from the task"""
+@app.route('/api/debug-local-task', methods=['POST'])
+def debug_local_task():
+    """Debug endpoint to check jobs and images in the local/connected CVAT instance"""
     data = request.json
     task_id = data.get('task_id')
-    job_id = data.get('job_id')
-    count = data.get('count', 10)
 
     if not task_id:
         return jsonify({'success': False, 'message': 'Missing task_id'}), 400
@@ -491,22 +563,381 @@ def random_select():
     try:
         client = CVATClient(url, username, password)
 
+        print(f"\n{'='*60}")
+        print(f"DEBUG: Checking LOCAL CVAT at {url}")
+        print(f"DEBUG: Task ID: {task_id}")
+        print(f"{'='*60}")
+
+        # Get task info
+        task_info = client.get_task_info(task_id)
+        print(f"DEBUG: Task name: {task_info.get('name', 'N/A')}")
+        print(f"DEBUG: Task size: {task_info.get('size', 0)} frames")
+
+        # Get jobs
+        jobs = client.get_task_jobs(task_id)
+        print(f"DEBUG: Found {len(jobs)} jobs")
+
+        jobs_info = []
+        for i, job in enumerate(jobs[:5]):  # First 5 jobs
+            job_info = {
+                'id': job.get('id'),
+                'start_frame': job.get('start_frame'),
+                'stop_frame': job.get('stop_frame'),
+                'status': job.get('status'),
+                'synthetic': job.get('synthetic', False)
+            }
+            jobs_info.append(job_info)
+            print(f"DEBUG: Job {i+1}: {job_info}")
+
+        # Get sample filenames from task metadata
+        meta = client.get_task_metadata(task_id)
+        frames = meta.get('frames', [])
+        sample_filenames = []
+        for i, frame in enumerate(frames[:10]):  # First 10 frames
+            filename = frame.get('name', f'frame_{i}')
+            normalized = normalize_filename(filename)
+            sample_filenames.append({
+                'original': filename,
+                'normalized': normalized
+            })
+            print(f"DEBUG: Frame {i}: '{filename}' -> '{normalized}'")
+
+        print(f"{'='*60}\n")
+
+        return jsonify({
+            'success': True,
+            'task_info': {
+                'name': task_info.get('name'),
+                'size': task_info.get('size'),
+                'status': task_info.get('status')
+            },
+            'jobs_count': len(jobs),
+            'jobs': jobs_info,
+            'total_frames': len(frames),
+            'sample_filenames': sample_filenames
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/debug-remote-task', methods=['POST'])
+def debug_remote_task():
+    """Debug endpoint to check jobs and images in a remote CVAT instance"""
+    data = request.json
+    url = data.get('url')
+    username = data.get('username')
+    password = data.get('password')
+    task_id = data.get('task_id')
+
+    if not all([url, username, password, task_id]):
+        return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+
+    try:
+        client = CVATClient(url, username, password)
+
+        # Test connection first
+        success, message = client.test_connection()
+        if not success:
+            return jsonify({'success': False, 'message': f'Connection failed: {message}'}), 500
+
+        print(f"\n{'='*60}")
+        print(f"DEBUG: Checking remote CVAT at {url}")
+        print(f"DEBUG: Task ID: {task_id}")
+        print(f"{'='*60}")
+
+        # Get task info
+        task_info = client.get_task_info(task_id)
+        print(f"DEBUG: Task info keys: {task_info.keys()}")
+        print(f"DEBUG: Task name: {task_info.get('name', 'N/A')}")
+        print(f"DEBUG: Task size: {task_info.get('size', 0)} frames")
+
+        # Get jobs
+        jobs = client.get_task_jobs(task_id)
+        print(f"DEBUG: Found {len(jobs)} jobs")
+
+        jobs_info = []
+        for i, job in enumerate(jobs):
+            job_info = {
+                'id': job.get('id'),
+                'start_frame': job.get('start_frame'),
+                'stop_frame': job.get('stop_frame'),
+                'status': job.get('status'),
+                'synthetic': job.get('synthetic', False)
+            }
+            jobs_info.append(job_info)
+            print(f"DEBUG: Job {i+1}: {job_info}")
+
+        # Get sample filenames from task metadata
+        meta = client.get_task_metadata(task_id)
+        frames = meta.get('frames', [])
+        sample_filenames = []
+        for i, frame in enumerate(frames[:10]):  # First 10 frames
+            filename = frame.get('name', f'frame_{i}')
+            normalized = normalize_filename(filename)
+            sample_filenames.append({
+                'original': filename,
+                'normalized': normalized
+            })
+            print(f"DEBUG: Frame {i}: '{filename}' -> '{normalized}'")
+
+        print(f"{'='*60}\n")
+
+        return jsonify({
+            'success': True,
+            'task_info': {
+                'name': task_info.get('name'),
+                'size': task_info.get('size'),
+                'status': task_info.get('status')
+            },
+            'jobs_count': len(jobs),
+            'jobs': jobs_info,
+            'total_frames': len(frames),
+            'sample_filenames': sample_filenames
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+def normalize_filename(filename):
+    """
+    Normalize filename for comparison by:
+    1. Getting just the base filename (removing path)
+    2. Removing any job ID prefix patterns like '68_' (short numeric prefixes 1-4 digits)
+
+    Examples:
+    - 'dataset_baumas/ex641/250919_s1_2_3/68_1758259745_7474.jpg' -> '1758259745_7474.jpg'
+    - '68_1758259745_7474.jpg' -> '1758259745_7474.jpg'
+    - '1758259745_7474.jpg' -> '1758259745_7474.jpg' (no change if no prefix)
+    """
+    # Get just the base filename (remove path)
+    if '/' in filename:
+        base_filename = filename.rsplit('/', 1)[1]
+    else:
+        base_filename = filename
+
+    # Remove job ID prefix: only short numeric prefixes (1-4 digits) followed by underscore
+    # This avoids removing timestamps which are longer (10+ digits)
+    clean_filename = re.sub(r'^\d{1,4}_', '', base_filename)
+
+    return clean_filename
+
+
+def get_existing_filenames_from_cvat(check_url, check_username, check_password, check_task_id):
+    """Get all filenames from another CVAT instance for duplicate checking"""
+    check_client = CVATClient(check_url, check_username, check_password)
+
+    try:
+        existing_filenames = set()
+
+        # Get task metadata to get all filenames from entire task
+        meta = check_client.get_task_metadata(check_task_id)
+        frames = meta.get('frames', [])
+
+        print(f"DEBUG: Got {len(frames)} frames from task {check_task_id}")
+
+        # Extract base filenames (without path)
+        for i, frame in enumerate(frames):
+            filename = frame.get('name', '')
+            clean_filename = normalize_filename(filename)
+            existing_filenames.add(clean_filename)
+
+            # Debug first few
+            if i < 3:
+                print(f"DEBUG: Existing frame - Original: '{filename}' -> Normalized: '{clean_filename}'")
+
+        return existing_filenames
+    except Exception as e:
+        print(f"ERROR: Failed to get existing filenames: {str(e)}")
+        raise
+
+
+@app.route('/api/random-select', methods=['POST'])
+def random_select():
+    """Randomly select N images per job from the task"""
+    data = request.json
+    task_id = data.get('task_id')
+    job_id = data.get('job_id')
+    count = data.get('count', 10)
+    duplicate_check = data.get('duplicate_check')  # Optional duplicate check params
+
+    if not task_id:
+        return jsonify({'success': False, 'message': 'Missing task_id'}), 400
+
+    # Get credentials from session or environment
+    url = session.get('cvat_url', CVAT_URL)
+    username = session.get('cvat_username', CVAT_USERNAME)
+    password = session.get('cvat_password', CVAT_PASSWORD)
+
+    if not all([url, username, password]):
+        return jsonify({'success': False, 'message': 'Not connected to CVAT'}), 401
+
+    # Validate main CVAT connection before proceeding
+    try:
+        print(f"DEBUG: Validating main CVAT connection to: {url}")
+        test_client = CVATClient(url, username, password)
+        connection_success, connection_message = test_client.test_connection()
+        if not connection_success:
+            return jsonify({
+                'success': False,
+                'message': f'Main CVAT connection failed: {connection_message}. Please reconnect to CVAT.',
+                'connection_url': url
+            }), 401
+        print(f"DEBUG: Main CVAT connection validated successfully: {connection_message}")
+
+        # Also verify the task exists on this CVAT instance
+        try:
+            task_response = requests.get(
+                f"{url.rstrip('/')}/api/tasks/{task_id}",
+                auth=HTTPBasicAuth(username, password),
+                timeout=10
+            )
+            if task_response.status_code == 404:
+                return jsonify({
+                    'success': False,
+                    'message': f'Task {task_id} not found on CVAT at {url}. You may be connected to the wrong CVAT instance.',
+                    'connection_url': url
+                }), 404
+            task_response.raise_for_status()
+            task_info = task_response.json()
+            print(f"DEBUG: Task {task_id} found: '{task_info.get('name', 'Unknown')}' with {task_info.get('size', 0)} images")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                return jsonify({
+                    'success': False,
+                    'message': f'Task {task_id} not found on CVAT at {url}. You may be connected to the wrong CVAT instance.',
+                    'connection_url': url
+                }), 404
+            raise
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Failed to validate CVAT connection: {str(e)}. Please reconnect to CVAT.',
+            'connection_url': url
+        }), 401
+
+    # Get existing filenames if duplicate check is enabled
+    existing_filenames = set()
+    duplicate_check_summary = None
+
+    if duplicate_check:
+        try:
+            existing_filenames = get_existing_filenames_from_cvat(
+                duplicate_check['check_url'],
+                duplicate_check['check_username'],
+                duplicate_check['check_password'],
+                duplicate_check['check_task_id']
+            )
+            print(f"DEBUG: Found {len(existing_filenames)} existing filenames from task {duplicate_check['check_task_id']} for duplicate check")
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Failed to connect to check CVAT: {str(e)}'}), 500
+
+    try:
+        print(f"DEBUG: Creating LOCAL client with URL: {url}")
+        client = CVATClient(url, username, password)
+
+        def select_unique_random_images(images, count, existing_filenames):
+            """
+            Select random images, replacing duplicates with new selections until count is reached.
+            Uses a hash set for O(1) duplicate lookup.
+
+            Args:
+                images: List of image dicts with 'filename' key
+                count: Desired number of unique images
+                existing_filenames: Set of normalized filenames already in another CVAT instance
+
+            Returns:
+                tuple: (selected_images, duplicate_filenames_found, images_checked)
+            """
+            if not existing_filenames:
+                # No duplicate check - simple random sample
+                sample_count = min(count, len(images))
+                return random.sample(images, sample_count) if sample_count > 0 else [], [], len(images)
+
+            # Shuffle all available images for random selection
+            shuffled_images = images.copy()
+            random.shuffle(shuffled_images)
+
+            selected_images = []
+            duplicate_filenames_found = []
+            images_checked = 0
+
+            # Debug: Show sample of existing filenames
+            if existing_filenames and images_checked == 0:
+                sample_existing = list(existing_filenames)[:5]
+                print(f"DEBUG: Sample existing filenames (normalized): {sample_existing}")
+
+            for img in shuffled_images:
+                images_checked += 1
+                filename = img.get('filename', '')
+                clean_filename = normalize_filename(filename)
+
+                # Debug first few comparisons
+                if images_checked <= 5:
+                    is_dup = clean_filename in existing_filenames
+                    print(f"DEBUG: Source image {images_checked}: '{filename}' -> '{clean_filename}' | Is duplicate: {is_dup}")
+
+                # Check if this image is a duplicate
+                if clean_filename in existing_filenames:
+                    duplicate_filenames_found.append(clean_filename)
+                    # Skip this image and continue to the next one
+                    continue
+
+                # Not a duplicate - add to selected
+                selected_images.append(img)
+
+                # Check if we've reached the desired count
+                if len(selected_images) >= count:
+                    break
+
+            print(f"DEBUG: Total checked: {images_checked}, Selected: {len(selected_images)}, Duplicates skipped: {len(duplicate_filenames_found)}")
+            return selected_images, duplicate_filenames_found, images_checked
+
         # If job_id is provided, select from that job only
         if job_id:
             all_images = client.get_job_images(task_id, job_id, include_filename=True)
 
-            # Randomly select images
-            sample_count = min(count, len(all_images))
-            selected_images = random.sample(all_images, sample_count)
+            # Select random images, replacing duplicates with new selections
+            if duplicate_check:
+                selected_images, duplicate_filenames, images_checked = select_unique_random_images(
+                    all_images, count, existing_filenames
+                )
+                total_candidates = len(all_images)
+                duplicates_count = len(duplicate_filenames)
+            else:
+                # Simple random sample without duplicate check
+                sample_count = min(count, len(all_images))
+                selected_images = random.sample(all_images, sample_count) if sample_count > 0 else []
+                duplicate_filenames = []
+                duplicates_count = 0
+                total_candidates = len(all_images)
 
-            return jsonify({
+            response_data = {
                 'success': True,
                 'images': selected_images,
                 'count': len(selected_images),
                 'total_available': len(all_images),
                 'source': f"job {job_id}",
                 'jobs_count': 1
-            })
+            }
+
+            if duplicate_check:
+                response_data['duplicate_check_summary'] = {
+                    'total_candidates': total_candidates,
+                    'duplicates_found': duplicates_count,
+                    'duplicates_skipped': duplicates_count,
+                    'unique_selected': len(selected_images),
+                    'requested_count': count,
+                    'duplicate_filenames': duplicate_filenames
+                }
+
+            return jsonify(response_data)
         else:
             # Get all jobs in the task
             jobs = client.get_task_jobs(task_id)
@@ -521,32 +952,80 @@ def random_select():
             # Select N random images from EACH job
             all_selected_images = []
             job_summary = []
+            total_candidates = 0
+            total_duplicates = 0
+            all_duplicate_filenames = []
 
             for job in jobs:
                 job_id_current = job.get('id')
-                print(f"DEBUG: Processing job {job_id_current}")
+                is_synthetic = job.get('synthetic', False)
+                print(f"DEBUG: Processing job {job_id_current} (synthetic: {is_synthetic})")
 
                 try:
-                    job_images = client.get_job_images(task_id, job_id_current, include_filename=True)
-                    print(f"DEBUG: Job {job_id_current} has {len(job_images)} images")
+                    # For synthetic jobs (when CVAT API doesn't return job list), use task images directly
+                    if is_synthetic or job_id_current is None:
+                        job_images = client.get_task_images(task_id, include_filename=True)
+                        # Add synthetic job_id to images for download naming
+                        for img in job_images:
+                            img['job_id'] = 'task'
+                        print(f"DEBUG: Synthetic job - loaded {len(job_images)} images from task")
+                    else:
+                        job_images = client.get_job_images(task_id, job_id_current, include_filename=True)
+                        print(f"DEBUG: Job {job_id_current} has {len(job_images)} images")
 
-                    # Select up to N images from this job
-                    sample_count = min(count, len(job_images))
-                    if sample_count > 0:
-                        selected_from_job = random.sample(job_images, sample_count)
+                    # Select random images, replacing duplicates with new selections
+                    if duplicate_check:
+                        selected_from_job, duplicate_filenames, images_checked = select_unique_random_images(
+                            job_images, count, existing_filenames
+                        )
+                        total_candidates += len(job_images)
+                        duplicates_count = len(duplicate_filenames)
+                        total_duplicates += duplicates_count
+                        all_duplicate_filenames.extend(duplicate_filenames)
+
                         all_selected_images.extend(selected_from_job)
-                        print(f"DEBUG: Selected {sample_count} images from job {job_id_current}")
+                        print(f"DEBUG: Selected {len(selected_from_job)} unique images from job {job_id_current} (skipped {duplicates_count} duplicates)")
 
+                        # Use 'Task' as job_id display for synthetic jobs
+                        job_display_id = job_id_current if job_id_current else f"Task {task_id}"
                         job_summary.append({
-                            'job_id': job_id_current,
-                            'selected': sample_count,
-                            'total': len(job_images)
+                            'job_id': job_display_id,
+                            'selected': len(selected_from_job),
+                            'total': len(job_images),
+                            'duplicates_skipped': duplicates_count,
+                            'requested': count,
+                            'note': 'Reached count' if len(selected_from_job) >= count else (
+                                'All non-duplicate images selected' if len(selected_from_job) < count else None
+                            )
                         })
+                    else:
+                        # Simple random sample without duplicate check
+                        sample_count = min(count, len(job_images))
+                        if sample_count > 0:
+                            selected_from_job = random.sample(job_images, sample_count)
+                            all_selected_images.extend(selected_from_job)
+                            print(f"DEBUG: Selected {sample_count} images from job {job_id_current}")
+
+                            job_display_id = job_id_current if job_id_current else f"Task {task_id}"
+                            job_summary.append({
+                                'job_id': job_display_id,
+                                'selected': sample_count,
+                                'total': len(job_images)
+                            })
+                        else:
+                            job_display_id = job_id_current if job_id_current else f"Task {task_id}"
+                            job_summary.append({
+                                'job_id': job_display_id,
+                                'selected': 0,
+                                'total': len(job_images),
+                                'note': 'No images'
+                            })
                 except Exception as e:
                     print(f"ERROR: Failed to process job {job_id_current}: {str(e)}")
                     # Add to summary showing error
+                    job_display_id = job_id_current if job_id_current else f"Task {task_id}"
                     job_summary.append({
-                        'job_id': job_id_current,
+                        'job_id': job_display_id,
                         'selected': 0,
                         'total': 0,
                         'error': str(e)
@@ -554,7 +1033,7 @@ def random_select():
 
             print(f"DEBUG: Total selected images: {len(all_selected_images)}")
 
-            return jsonify({
+            response_data = {
                 'success': True,
                 'images': all_selected_images,
                 'count': len(all_selected_images),
@@ -562,7 +1041,19 @@ def random_select():
                 'jobs_count': len(jobs),
                 'per_job_count': count,
                 'job_summary': job_summary
-            })
+            }
+
+            if duplicate_check:
+                response_data['duplicate_check_summary'] = {
+                    'total_candidates': total_candidates,
+                    'duplicates_found': total_duplicates,
+                    'duplicates_skipped': total_duplicates,
+                    'unique_selected': len(all_selected_images),
+                    'requested_per_job': count,
+                    'duplicate_filenames': all_duplicate_filenames
+                }
+
+            return jsonify(response_data)
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
