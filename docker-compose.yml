@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  cvat-image-selector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cvat-image-selector
+    ports:
+      - "1504:1504"
+    environment:
+      - CVAT_URL=${CVAT_URL:-}
+      - CVAT_USERNAME=${CVAT_USERNAME:-}
+      - CVAT_PASSWORD=${CVAT_PASSWORD:-}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-}
+    volumes:
+      # Optional: Mount for persistent temp files during video processing
+      - ./temp:/tmp/video_processing
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:1504/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
