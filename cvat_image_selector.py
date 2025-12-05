@@ -2389,6 +2389,14 @@ def download_video_frames():
 
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='CVAT Image Selector')
+    parser.add_argument('--port', type=int, default=5000, help='Port to run the server on (default: 5000)')
+    parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to (default: 0.0.0.0)')
+    parser.add_argument('--debug', action='store_true', default=True, help='Run in debug mode')
+    args = parser.parse_args()
+
     # Create templates directory if it doesn't exist
     os.makedirs('templates', exist_ok=True)
 
@@ -2398,7 +2406,7 @@ if __name__ == '__main__':
     print(f"CVAT URL: {CVAT_URL or 'Not set'}")
     print(f"Username: {CVAT_USERNAME or 'Not set'}")
     print("=" * 60)
-    print("\nStarting server at http://localhost:5000")
+    print(f"\nStarting server at http://localhost:{args.port}")
     print("Press Ctrl+C to stop\n")
 
-    app.run(debug=True, host='0.0.0.0', port=5020)
+    app.run(debug=args.debug, host=args.host, port=args.port)
