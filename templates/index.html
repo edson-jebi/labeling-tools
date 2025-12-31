@@ -2,791 +2,2115 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CVAT Image Selector & Annotation Copier</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>CVAT Labeling Tools</title>
+
+    <!-- Preload critical fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     <style>
-        * {
+        /* ============================================================================
+           CVAT Labeling Tools - Apple-Inspired Design System
+           ============================================================================ */
+
+        /* ---- CSS Custom Properties (Design Tokens) ---- */
+        :root {
+            /* Colors - Refined Apple Pro palette with sophisticated muted tones */
+            --color-primary: #0071E3;
+            --color-primary-hover: #0077ED;
+            --color-primary-light: rgba(0, 113, 227, 0.08);
+            --color-primary-subtle: rgba(0, 113, 227, 0.04);
+            --color-success: #28A745;
+            --color-success-hover: #218838;
+            --color-success-light: rgba(40, 167, 69, 0.08);
+            --color-warning: #FF9F0A;
+            --color-warning-hover: #E8900A;
+            --color-warning-light: rgba(255, 159, 10, 0.08);
+            --color-danger: #DC3545;
+            --color-danger-hover: #C82333;
+            --color-danger-light: rgba(220, 53, 69, 0.08);
+            --color-purple: #8B5CF6;
+            --color-purple-light: rgba(139, 92, 246, 0.08);
+
+            /* Backgrounds - Warmer, more refined neutrals */
+            --color-bg-primary: #FFFFFF;
+            --color-bg-secondary: #F5F5F7;
+            --color-bg-tertiary: #E8E8ED;
+            --color-bg-elevated: #FFFFFF;
+            --color-bg-hover: #FAFAFA;
+
+            /* Text - Better contrast ratios for accessibility */
+            --color-text-primary: #1D1D1F;
+            --color-text-secondary: #86868B;
+            --color-text-tertiary: #A1A1A6;
+            --color-text-quaternary: #C7C7CC;
+            --color-text-inverse: #FFFFFF;
+
+            /* Borders & Separators - More nuanced */
+            --color-separator: rgba(0, 0, 0, 0.06);
+            --color-separator-medium: rgba(0, 0, 0, 0.10);
+            --color-separator-strong: rgba(0, 0, 0, 0.16);
+            --color-separator-opaque: #D2D2D7;
+
+            /* Typography - Apple's precise SF Pro scale with dramatic jumps */
+            --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+            --font-size-xs: 11px;      /* Caption 2 */
+            --font-size-sm: 13px;      /* Caption 1 */
+            --font-size-base: 15px;    /* Footnote */
+            --font-size-md: 17px;      /* Body */
+            --font-size-lg: 22px;      /* Title 3 - increased from 20px */
+            --font-size-xl: 28px;      /* Title 2 - increased from 24px */
+            --font-size-2xl: 34px;     /* Title 1 */
+            --font-size-3xl: 40px;     /* Large Title - increased from 34px */
+            --font-size-hero: 56px;    /* For statistics/key numbers */
+
+            --font-weight-regular: 400;
+            --font-weight-medium: 500;
+            --font-weight-semibold: 600;
+            --font-weight-bold: 700;
+
+            /* Letter spacing - Apple's precise tracking */
+            --letter-spacing-tight: -0.022em;
+            --letter-spacing-normal: 0;
+            --letter-spacing-wide: 0.012em;
+
+            --line-height-tight: 1.1;      /* For large display text */
+            --line-height-snug: 1.2;       /* For headings */
+            --line-height-normal: 1.4;     /* For UI text */
+            --line-height-relaxed: 1.5;    /* For body copy */
+            --line-height-loose: 1.7;      /* For long-form reading */
+
+            /* Spacing - 4px base unit with more generous values */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 24px;      /* Increased from 20px */
+            --space-6: 32px;      /* Increased from 24px */
+            --space-8: 48px;      /* Increased from 32px */
+            --space-10: 64px;     /* Increased from 40px */
+            --space-12: 80px;     /* Increased from 48px */
+            --space-16: 128px;    /* Increased from 64px */
+
+            /* Border Radius - Apple's current scale */
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-2xl: 20px;
+            --radius-full: 9999px;
+
+            /* Shadows - Ultra-subtle Apple-inspired system */
+            --shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.02);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+            --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.10), 0 4px 8px rgba(0, 0, 0, 0.05);
+
+            /* Colored shadows for interactive elements */
+            --shadow-primary: 0 2px 8px rgba(0, 113, 227, 0.15);
+            --shadow-focus: 0 0 0 4px var(--color-primary-light);
+
+            /* Transitions - faster, more responsive */
+            --transition-fast: 0.12s ease;
+            --transition-base: 0.2s ease;
+            --transition-slow: 0.25s ease;
+            --transition-spring: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+            /* Z-index scale */
+            --z-dropdown: 100;
+            --z-sticky: 200;
+            --z-modal-backdrop: 900;
+            --z-modal: 1000;
+            --z-toast: 1100;
+        }
+
+
+        /* ---- Reset & Base ---- */
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
+            font-family: var(--font-family);
+            font-size: var(--font-size-base);
+            line-height: var(--line-height-normal);
+            color: var(--color-text-primary);
+            background: var(--color-bg-secondary);
+            min-height: 100vh;
         }
 
-        .container {
-            max-width: 1200px;
+        /* Focus states for keyboard navigation */
+        body.keyboard-nav *:focus {
+            outline: none;
+            box-shadow: 0 0 0 4px var(--color-primary-light), 0 0 0 2px var(--color-primary);
+        }
+
+        body:not(.keyboard-nav) *:focus {
+            outline: none;
+        }
+
+        /* Skip link for accessibility */
+        .skip-link {
+            position: absolute;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-primary);
+            color: var(--color-text-inverse);
+            padding: var(--space-3) var(--space-6);
+            border-radius: var(--radius-md);
+            font-weight: var(--font-weight-semibold);
+            z-index: var(--z-toast);
+            transition: top var(--transition-base);
+        }
+
+        .skip-link:focus {
+            top: var(--space-4);
+        }
+
+        /* ---- Layout - More generous whitespace ---- */
+        .app-container {
+            max-width: 1040px;
             margin: 0 auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 30px;
+            padding: var(--space-8) var(--space-6);
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 30px;
-            text-align: center;
+        @media (max-width: 768px) {
+            .app-container {
+                padding: var(--space-5) var(--space-4);
+            }
         }
 
-        /* Tabs */
-        .tabs {
+        /* ---- Header - Clean, minimal ---- */
+        .app-header {
             display: flex;
-            border-bottom: 2px solid #e0e0e0;
-            margin-bottom: 30px;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-4) var(--space-5);
+            background: var(--color-bg-primary);
+            border-radius: var(--radius-xl);
+            margin-bottom: var(--space-6);
+            border: 1px solid var(--color-separator);
         }
 
-        .tab {
-            padding: 12px 24px;
-            cursor: pointer;
+        .app-logo {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .app-logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-purple));
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .app-logo-text {
+            font-size: var(--font-size-xl);
+            font-weight: var(--font-weight-bold);
+            letter-spacing: var(--letter-spacing-tight);
+        }
+
+        .app-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--color-success-light);
+            color: var(--color-success);
+            border-radius: var(--radius-full);
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+        }
+
+        .app-status.disconnected {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-secondary);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ---- Main Card ---- */
+        .main-card {
+            background: var(--color-bg-primary);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--color-separator);
+            overflow: hidden;
+        }
+
+        /* ---- Segmented Control (Tabs) - Lighter underline style ---- */
+        .segmented-control {
+            display: flex;
+            background: transparent;
+            padding: 0;
+            margin: var(--space-5) var(--space-5) var(--space-6);
+            border-bottom: 1px solid var(--color-separator);
+            position: relative;
+            gap: var(--space-6);
+        }
+
+        .segment-btn {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            padding: var(--space-3) 0;
             background: transparent;
             border: none;
-            border-bottom: 3px solid transparent;
-            color: #666;
-            font-size: 16px;
-            font-weight: 500;
-            transition: all 0.3s;
+            border-radius: 0;
+            color: var(--color-text-secondary);
+            font-family: inherit;
+            font-size: var(--font-size-md);
+            font-weight: var(--font-weight-medium);
+            cursor: pointer;
+            transition: color var(--transition-fast);
+            position: relative;
         }
 
-        .tab:hover {
-            color: #4CAF50;
+        .segment-btn:hover {
+            color: var(--color-text-primary);
         }
 
-        .tab.active {
-            color: #4CAF50;
-            border-bottom-color: #4CAF50;
+        .segment-btn.active {
+            color: var(--color-text-primary);
+            font-weight: var(--font-weight-semibold);
         }
 
-        .tab-content {
-            display: none;
+        /* Active indicator - thin line at bottom */
+        .segment-btn.active::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 2px;
+            background: var(--color-primary);
+            border-radius: 2px 2px 0 0;
         }
 
-        .tab-content.active {
-            display: block;
-        }
-
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-        }
-
-        .section h2 {
-            color: #555;
-            margin-bottom: 15px;
+        .segment-btn-icon {
             font-size: 18px;
         }
 
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: #666;
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="password"],
-        input[type="number"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        input[type="text"]:focus,
-        input[type="password"]:focus,
-        input[type="number"]:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        button {
-            background: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        button:hover {
-            background: #45a049;
-        }
-
-        button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-        }
-
-        .status {
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 4px;
+        /* Hide sliding indicator - using underline instead */
+        .segment-indicator {
             display: none;
         }
 
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        /* ---- Tab Panels ---- */
+        .tab-panel {
+            display: none;
+            padding: 0 var(--space-6) var(--space-6);
+            animation: fadeIn var(--transition-base);
+        }
+
+        .tab-panel.active {
             display: block;
         }
 
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-            display: block;
+        /* ---- Section Cards - Simplified with less visual weight ---- */
+        .section-card {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: var(--space-6) 0;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--color-separator);
         }
 
-        .button-group {
+        .section-card:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-semibold);
+            letter-spacing: var(--letter-spacing-tight);
+            line-height: var(--line-height-snug);
+            margin-bottom: var(--space-5);
             display: flex;
-            gap: 10px;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .section-title-icon {
+            font-size: 22px;
+            color: var(--color-text-secondary);
+        }
+
+        /* ---- Form Elements - Refined Apple-style ---- */
+        .form-group {
+            margin-bottom: var(--space-5);
+        }
+
+        .form-label {
+            display: block;
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-text-secondary);
+            letter-spacing: var(--letter-spacing-wide);
+            margin-bottom: var(--space-2);
+        }
+
+        .form-label-hint {
+            font-weight: var(--font-weight-regular);
+            color: var(--color-text-quaternary);
+            margin-left: var(--space-2);
+        }
+
+        .form-input {
+            width: 100%;
+            min-height: 44px;
+            padding: 0 var(--space-4);
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator-medium);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: var(--font-size-md);
+            color: var(--color-text-primary);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .form-input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 4px var(--color-primary-subtle);
+            outline: none;
+        }
+
+        .form-input::placeholder {
+            color: var(--color-text-quaternary);
+            font-style: normal;
+        }
+
+        .form-input:disabled {
+            background: var(--color-bg-secondary);
+            color: var(--color-text-tertiary);
+            border-color: var(--color-separator);
+            cursor: not-allowed;
+        }
+
+        /* Input with icon */
+        .input-with-icon {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: var(--space-3);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-text-secondary);
+            pointer-events: none;
+        }
+
+        .input-with-icon .form-input {
+            padding-left: 40px;
+        }
+
+        /* Form row (inline) */
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-4);
+        }
+
+        /* ---- Buttons - Refined Apple-style system ---- */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            min-height: 44px;
+            padding: 0 var(--space-5);
+            border: none;
+            border-radius: var(--radius-lg);
+            font-family: inherit;
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-semibold);
+            letter-spacing: -0.01em;
+            cursor: pointer;
+            transition: all var(--transition-base);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-tertiary);
+            border-color: transparent;
+            cursor: not-allowed;
+            opacity: 1;
+        }
+
+        /* Primary button - refined with subtle shadow */
+        .btn-primary {
+            background: var(--color-primary);
+            color: var(--color-text-inverse);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+            box-shadow: var(--shadow-md), var(--shadow-primary);
+        }
+
+        .btn-primary:active:not(:disabled) {
+            box-shadow: var(--shadow-xs);
+        }
+
+        /* Secondary button - with border */
+        .btn-secondary {
+            background: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-separator-medium);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--color-bg-tertiary);
+            border-color: var(--color-separator-strong);
+        }
+
+        /* Success button */
+        .btn-success {
+            background: var(--color-success);
+            color: var(--color-text-inverse);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: var(--color-success-hover);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Warning button */
+        .btn-warning {
+            background: var(--color-warning);
+            color: var(--color-text-inverse);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: var(--color-warning-hover);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Danger button */
+        .btn-danger {
+            background: var(--color-danger);
+            color: var(--color-text-inverse);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: var(--color-danger-hover);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Purple button */
+        .btn-purple {
+            background: var(--color-purple);
+            color: var(--color-text-inverse);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-purple:hover:not(:disabled) {
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Ghost button - text only */
+        .btn-ghost {
+            background: transparent;
+            color: var(--color-primary);
+            padding: 0 var(--space-4);
+        }
+
+        .btn-ghost:hover:not(:disabled) {
+            background: var(--color-primary-subtle);
+            transform: none;
+        }
+
+        /* Full width button */
+        .btn-block {
+            width: 100%;
+        }
+
+        /* Button group */
+        .btn-group {
+            display: flex;
+            gap: var(--space-3);
             flex-wrap: wrap;
-            margin-top: 15px;
+        }
+
+        /* Button with loading spinner */
+        .btn-loading {
+            pointer-events: none;
+        }
+
+        .btn-loading .btn-text {
+            opacity: 0;
+        }
+
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--color-primary-subtle);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ---- Status Messages - Subtle accent border style ---- */
+        .status-message {
+            display: none;
+            align-items: flex-start;
+            gap: var(--space-3);
+            padding: var(--space-4) var(--space-5);
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-sm);
+            line-height: var(--line-height-relaxed);
+            margin-top: var(--space-5);
+            animation: slideUp var(--transition-base);
+            border-left: 3px solid;
+            background: var(--color-bg-secondary);
+        }
+
+        .status-message.visible {
+            display: flex;
+        }
+
+        .status-message.success {
+            border-color: var(--color-success);
+            background: rgba(40, 167, 69, 0.03);
+        }
+
+        .status-message.success .status-icon {
+            color: var(--color-success);
+        }
+
+        .status-message.error {
+            border-color: var(--color-danger);
+            background: rgba(220, 53, 69, 0.03);
+        }
+
+        .status-message.error .status-icon {
+            color: var(--color-danger);
+        }
+
+        .status-message.warning {
+            border-color: var(--color-warning);
+            background: rgba(255, 159, 10, 0.03);
+        }
+
+        .status-message.warning .status-icon {
+            color: var(--color-warning);
+        }
+
+        .status-message.info {
+            border-color: var(--color-primary);
+            background: rgba(0, 113, 227, 0.03);
+        }
+
+        .status-message.info .status-icon {
+            color: var(--color-primary);
+        }
+
+        .status-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .status-text {
+            color: var(--color-text-primary);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---- Image Grid ---- */
+        .images-section {
+            display: none;
+        }
+
+        .images-section.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        .images-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-4);
+            flex-wrap: wrap;
+            gap: var(--space-3);
+        }
+
+        .images-count {
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-semibold);
+        }
+
+        .images-count-number {
+            color: var(--color-primary);
         }
 
         .images-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-4);
         }
 
-        .image-item {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
+        .image-card {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
             display: flex;
             align-items: center;
+            gap: var(--space-3);
+            cursor: pointer;
+            transition: all var(--transition-base);
         }
 
-        .image-item input[type="checkbox"] {
-            margin-right: 10px;
-            width: 18px;
-            height: 18px;
+        .image-card:hover {
+            border-color: var(--color-separator-strong);
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-1px);
+        }
+
+        .image-card.selected {
+            border-color: var(--color-primary);
+            background: var(--color-bg-primary);
+            box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-sm);
+        }
+
+        /* Custom checkbox - Rounded Apple-style */
+        .checkbox-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .checkbox-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
             cursor: pointer;
+        }
+
+        .checkbox-custom {
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--color-separator-strong);
+            border-radius: 6px;
+            background: var(--color-bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-spring);
+            pointer-events: none;
+        }
+
+        .checkbox-input:checked + .checkbox-custom {
+            background: var(--color-primary);
+            border-color: var(--color-primary);
+            transform: scale(1.05);
+        }
+
+        .checkbox-custom::after {
+            content: '';
+            width: 5px;
+            height: 9px;
+            border: solid white;
+            border-width: 0 2.5px 2.5px 0;
+            transform: rotate(45deg) scale(0);
+            transition: transform var(--transition-spring);
+        }
+
+        .checkbox-input:checked + .checkbox-custom::after {
+            transform: rotate(45deg) scale(1);
         }
 
         .image-info {
             flex: 1;
-            font-size: 13px;
-            color: #555;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
+            min-width: 0;
         }
 
-        .image-info span {
-            word-break: break-all;
+        .image-filename {
+            font-weight: var(--font-weight-medium);
+            color: var(--color-text-primary);
+            margin-bottom: var(--space-1);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .selection-summary pre {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 4px;
+        .image-meta {
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        }
+
+        .image-meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+        }
+
+        .image-meta-item + .image-meta-item::before {
+            content: '·';
+            margin: 0 var(--space-2);
+        }
+
+        /* ---- Selection Summary ---- */
+        .summary-section {
+            display: none;
+        }
+
+        .summary-section.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        .summary-card {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+        }
+
+        .summary-pre {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+            font-size: var(--font-size-sm);
+            line-height: var(--line-height-relaxed);
             overflow-x: auto;
-            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
 
-        #selectAllBtn {
-            background: #2196F3;
-        }
-
-        #selectAllBtn:hover {
-            background: #0b7dda;
-        }
-
-        #clearSelectionBtn {
-            background: #f44336;
-        }
-
-        #clearSelectionBtn:hover {
-            background: #da190b;
-        }
-
-        #downloadBtn {
-            background: #FF9800;
-        }
-
-        #downloadBtn:hover {
-            background: #e68900;
-        }
-
-        #randomSelectBtn {
-            background: #9C27B0;
-        }
-
-        #randomSelectBtn:hover {
-            background: #7B1FA2;
-        }
-
-        .inline-group {
-            display: flex;
-            gap: 10px;
-            align-items: flex-end;
-        }
-
-        .inline-group .form-group {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        /* Dual connection layout */
-        .dual-connection {
+        /* ---- Dual Connection Layout ---- */
+        .dual-layout {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-4);
         }
 
         .connection-box {
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            padding: 15px;
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            position: relative;
         }
 
-        .connection-box h3 {
-            color: #555;
-            margin-bottom: 15px;
-            font-size: 16px;
+        /* Accent bar on the left */
+        .connection-box::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+        }
+
+        .connection-box.source::before {
+            background: var(--color-primary);
+        }
+
+        .connection-box.target::before {
+            background: var(--color-warning);
+        }
+
+        .connection-box-title {
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-semibold);
+            letter-spacing: var(--letter-spacing-tight);
+            margin-bottom: var(--space-5);
             text-align: center;
         }
 
-        .connection-box.source {
-            border-color: #2196F3;
+        .connection-box.source .connection-box-title {
+            color: var(--color-primary);
         }
 
-        .connection-box.target {
-            border-color: #FF9800;
+        .connection-box.target .connection-box-title {
+            color: var(--color-warning);
         }
 
-        .connection-box.source h3 {
-            color: #2196F3;
+        /* ---- Toggle Switch - Refined desktop size ---- */
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            cursor: pointer;
         }
 
-        .connection-box.target h3 {
-            color: #FF9800;
+        .toggle-input {
+            position: absolute;
+            opacity: 0;
         }
 
-        .copy-btn {
-            background: #9C27B0;
+        .toggle-slider {
+            position: relative;
+            width: 44px;
+            height: 26px;
+            background: var(--color-bg-tertiary);
+            border-radius: 26px;
+            transition: background var(--transition-base);
+            flex-shrink: 0;
+        }
+
+        .toggle-input:checked + .toggle-slider {
+            background: var(--color-success);
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+            transition: transform var(--transition-base);
+        }
+
+        .toggle-input:checked + .toggle-slider::before {
+            transform: translateX(18px);
+        }
+
+        .toggle-label {
+            font-weight: var(--font-weight-medium);
+        }
+
+        /* ---- Expandable Panel ---- */
+        .expandable-panel {
+            background: var(--color-warning-light);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            margin-top: var(--space-4);
+            display: none;
+        }
+
+        .expandable-panel.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        /* ---- Statistics Cards - More prominent with hero numbers ---- */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+
+        .stat-card {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            text-align: center;
+            transition: all var(--transition-base);
+        }
+
+        .stat-card:hover {
+            border-color: var(--color-separator-medium);
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-2px);
+        }
+
+        .stat-value {
+            font-size: var(--font-size-hero);
+            font-weight: var(--font-weight-bold);
+            line-height: var(--line-height-tight);
+            letter-spacing: var(--letter-spacing-tight);
+            margin-bottom: var(--space-2);
+        }
+
+        .stat-card.primary .stat-value { color: var(--color-primary); }
+        .stat-card.success .stat-value { color: var(--color-success); }
+        .stat-card.warning .stat-value { color: var(--color-warning); }
+        .stat-card.danger .stat-value { color: var(--color-danger); }
+
+        .stat-label {
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+            color: var(--color-text-secondary);
+            letter-spacing: var(--letter-spacing-wide);
+        }
+
+        /* ---- Progress Bar ---- */
+        .progress-wrapper {
+            display: none;
+            padding: var(--space-5);
+            background: var(--color-primary-light);
+            border-radius: var(--radius-lg);
+            margin-top: var(--space-4);
+        }
+
+        .progress-wrapper.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        .progress-text {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            color: var(--color-primary);
+            font-weight: var(--font-weight-medium);
+            margin-bottom: var(--space-3);
+        }
+
+        .progress-spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--color-primary-light);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .progress-bar-track {
+            height: 6px;
+            background: var(--color-bg-primary);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--color-primary);
+            border-radius: var(--radius-full);
+            transition: width var(--transition-slow);
+            position: relative;
+        }
+
+        .progress-bar-fill::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(100%); }
+        }
+
+        /* ---- Slider (Range Input) ---- */
+        .slider-wrapper {
+            margin-bottom: var(--space-4);
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-2);
+        }
+
+        .slider-value {
+            font-weight: var(--font-weight-semibold);
+            color: var(--color-primary);
+        }
+
+        .slider-input {
             width: 100%;
-            margin-top: 15px;
+            height: 6px;
+            appearance: none;
+            background: var(--color-bg-tertiary);
+            border-radius: var(--radius-full);
+            outline: none;
         }
 
-        .copy-btn:hover {
-            background: #7B1FA2;
+        .slider-input::-webkit-slider-thumb {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            transition: transform var(--transition-fast);
+        }
+
+        .slider-input::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .slider-input::-webkit-slider-thumb:active {
+            transform: scale(0.95);
+        }
+
+        .slider-hint {
+            font-size: var(--font-size-xs);
+            color: var(--color-text-secondary);
+            margin-top: var(--space-2);
+        }
+
+        /* ---- Select Dropdown ---- */
+        .select-wrapper {
+            position: relative;
+        }
+
+        .form-select {
+            width: 100%;
+            height: 44px;
+            padding: 0 var(--space-10) 0 var(--space-4);
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: var(--font-size-base);
+            color: var(--color-text-primary);
+            appearance: none;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .form-select:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 4px var(--color-primary-light);
+        }
+
+        .select-arrow {
+            position: absolute;
+            right: var(--space-4);
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--color-text-secondary);
+        }
+
+        /* ---- File Upload ---- */
+        .file-upload {
+            position: relative;
+            border: 2px dashed var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-8);
+            text-align: center;
+            transition: all var(--transition-fast);
+            cursor: pointer;
+        }
+
+        .file-upload:hover {
+            border-color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+
+        .file-upload.dragover {
+            border-color: var(--color-primary);
+            background: var(--color-primary-light);
+        }
+
+        .file-upload-input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-3);
+        }
+
+        .file-upload-text {
+            font-weight: var(--font-weight-medium);
+            margin-bottom: var(--space-1);
+        }
+
+        .file-upload-hint {
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        }
+
+        /* ---- Annotations Preview ---- */
+        .preview-panel {
+            display: none;
+            margin-top: var(--space-6);
+            border: 2px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .preview-panel.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        .preview-panel.source { border-color: var(--color-primary); }
+        .preview-panel.target { border-color: var(--color-warning); }
+        .preview-panel.match { border-color: var(--color-purple); }
+
+        .preview-header {
+            padding: var(--space-4) var(--space-5);
+            background: var(--color-bg-secondary);
+            font-weight: var(--font-weight-semibold);
+        }
+
+        .preview-panel.source .preview-header { color: var(--color-primary); }
+        .preview-panel.target .preview-header { color: var(--color-warning); }
+        .preview-panel.match .preview-header { color: var(--color-purple); }
+
+        .preview-content {
+            padding: var(--space-5);
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .preview-item {
+            padding: var(--space-4);
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all var(--transition-base);
+        }
+
+        .preview-item:hover {
+            background: var(--color-bg-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .preview-item-name {
+            font-weight: var(--font-weight-medium);
+        }
+
+        .preview-item-meta {
+            font-size: var(--font-size-sm);
+            color: var(--color-text-secondary);
+        }
+
+        .preview-item-count {
+            display: flex;
+            gap: var(--space-3);
+            font-size: var(--font-size-sm);
+        }
+
+        /* ---- Recommendations Section ---- */
+        .recommendations {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+        }
+
+        .recommendations-title {
+            font-size: var(--font-size-md);
+            font-weight: var(--font-weight-semibold);
+            margin-bottom: var(--space-5);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .recommendations-list {
+            list-style: none;
+        }
+
+        .recommendations-list li {
+            padding: var(--space-3) 0;
+            padding-left: var(--space-5);
+            position: relative;
+            font-size: var(--font-size-base);
+            color: var(--color-text-secondary);
+            line-height: var(--line-height-relaxed);
+        }
+
+        .recommendations-list li::before {
+            content: '•';
+            position: absolute;
+            left: var(--space-2);
+            color: var(--color-primary);
+            font-size: var(--font-size-lg);
+        }
+
+        .recommendations-list li strong {
+            color: var(--color-text-primary);
+            font-weight: var(--font-weight-semibold);
+        }
+
+        /* ---- Toast Notifications ---- */
+        .toast-container {
+            position: fixed;
+            top: var(--space-6);
+            right: var(--space-6);
+            z-index: var(--z-toast);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-4) var(--space-5);
+            background: rgba(29, 29, 31, 0.95);
+            color: white;
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            transform: translateX(120%);
+            transition: transform var(--transition-slow);
+            min-width: 280px;
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+        }
+
+        .toast.visible {
+            transform: translateX(0);
+        }
+
+        .toast-icon {
+            font-size: 18px;
+        }
+
+        .toast-message {
+            font-size: var(--font-size-base);
+            font-weight: var(--font-weight-regular);
+            line-height: var(--line-height-normal);
+        }
+
+        /* ---- Empty State ---- */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-12) var(--space-6);
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--color-bg-secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin-bottom: var(--space-5);
+        }
+
+        .empty-state-title {
+            font-size: var(--font-size-xl);
+            font-weight: var(--font-weight-semibold);
+            margin-bottom: var(--space-2);
+        }
+
+        .empty-state-description {
+            color: var(--color-text-secondary);
+            max-width: 400px;
+            margin-bottom: var(--space-6);
+        }
+
+        /* ---- Job Summary ---- */
+        .job-summary {
+            display: none;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-separator);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            margin-top: var(--space-5);
+        }
+
+        .job-summary.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        .job-summary-title {
+            font-size: var(--font-size-md);
+            font-weight: var(--font-weight-semibold);
+            margin-bottom: var(--space-4);
+        }
+
+        .job-summary-item {
+            font-size: var(--font-size-sm);
+            padding: var(--space-2) 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .job-summary-item.error {
+            color: var(--color-danger);
+        }
+
+        /* ---- Duplicate Summary ---- */
+        .duplicate-summary {
+            display: none;
+            background: var(--color-success-light);
+            border: 1px solid rgba(52, 199, 89, 0.2);
+            border-left: 3px solid var(--color-success);
+            border-radius: var(--radius-lg);
+            padding: var(--space-5);
+            margin-top: var(--space-4);
+        }
+
+        .duplicate-summary.visible {
+            display: block;
+            animation: fadeIn var(--transition-base);
+        }
+
+        .duplicate-summary-title {
+            font-weight: var(--font-weight-semibold);
+            font-size: var(--font-size-md);
+            color: #1B7F37;
+            margin-bottom: var(--space-3);
+        }
+
+        /* ---- Responsive Adjustments ---- */
+        @media (max-width: 768px) {
+            .app-header {
+                flex-direction: column;
+                gap: var(--space-3);
+                text-align: center;
+            }
+
+            .segmented-control {
+                flex-direction: column;
+            }
+
+            .segment-indicator {
+                display: none;
+            }
+
+            .segment-btn.active {
+                background: var(--color-bg-primary);
+                box-shadow: var(--shadow-sm);
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn-group .btn {
+                width: 100%;
+            }
+
+            .images-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* ---- Print Styles ---- */
+        @media print {
+            .app-header,
+            .segmented-control,
+            .btn-group,
+            .toast-container {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>CVAT Image Selector & Annotation Copier</h1>
+    <!-- Skip link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('selector')">Image Selector</button>
-            <button class="tab" onclick="switchTab('copier')">Annotation Copier</button>
-            <button class="tab" onclick="switchTab('video')">SVO/MP4 Best Selector</button>
-        </div>
+    <!-- Toast container -->
+    <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
-        <!-- Tab 1: Image Selector -->
-        <div id="selector-tab" class="tab-content active">
-            <!-- Connection Section -->
-            <div class="section">
-                <h2>CVAT Connection</h2>
-                <div class="form-group">
-                    <label for="cvatUrl">CVAT URL:</label>
-                    <input type="text" id="cvatUrl" value="{{ cvat_url or 'http://35.154.159.242:8080' }}" placeholder="http://35.154.159.242:8080">
-                </div>
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" value="{{ cvat_username }}" placeholder="your_username">
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" placeholder="your_password">
-                </div>
-                <button onclick="testConnection()">Connect</button>
-                <div id="connectionStatus" class="status"></div>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="app-logo">
+                <div class="app-logo-icon" aria-hidden="true">C</div>
+                <span class="app-logo-text">CVAT Labeling Tools</span>
             </div>
-
-            <!-- Task/Job Selection -->
-            <div class="section">
-                <h2>Load Images</h2>
-                <div class="form-group">
-                    <label for="taskId">Task ID: <span style="color: red;">*</span></label>
-                    <input type="number" id="taskId" placeholder="Enter task ID (required)">
-                </div>
-                <div class="form-group">
-                    <label for="jobId">Job ID: <span style="color: #999;">(optional)</span></label>
-                    <input type="number" id="jobId" placeholder="Enter job ID (leave empty for entire task)">
-                </div>
-                <div class="button-group">
-                    <button onclick="loadImages()" id="loadBtn">Load All Images</button>
-                </div>
-                <p style="font-size: 13px; color: #666; margin-top: 10px;">
-                    <strong>Tip:</strong> Leave Job ID empty to load all images from the task, or specify a Job ID to load only images from that job.
-                </p>
-                <div id="loadStatus" class="status"></div>
+            <div class="app-status disconnected" id="connectionStatus">
+                <span class="status-indicator"></span>
+                <span id="connectionText">Not Connected</span>
             </div>
+        </header>
 
-            <!-- Random Selection -->
-            <div class="section">
-                <h2>Random Selection</h2>
-                <div class="inline-group">
-                    <div class="form-group">
-                        <label for="randomCount">Number of Images per Job:</label>
-                        <input type="number" id="randomCount" value="10" min="1" placeholder="Enter number">
+        <!-- Main Content -->
+        <main class="main-card" id="main-content">
+            <!-- Segmented Control (Tabs) -->
+            <nav class="segmented-control" role="tablist" aria-label="Main navigation">
+                <button class="segment-btn active" role="tab" aria-selected="true" aria-controls="selector-panel" id="selector-tab" onclick="switchTab('selector')">
+                    <span>Image Selector</span>
+                </button>
+                <button class="segment-btn" role="tab" aria-selected="false" aria-controls="copier-panel" id="copier-tab" onclick="switchTab('copier')">
+                    <span>Annotation Copier</span>
+                </button>
+                <button class="segment-btn" role="tab" aria-selected="false" aria-controls="video-panel" id="video-tab" onclick="switchTab('video')">
+                    <span>Video Analyzer</span>
+                </button>
+                <div class="segment-indicator" aria-hidden="true"></div>
+            </nav>
+
+            <!-- Tab Panel: Image Selector -->
+            <div class="tab-panel active" id="selector-panel" role="tabpanel" aria-labelledby="selector-tab">
+                <!-- Connection Section -->
+                <section class="section-card">
+                    <h2 class="section-title">
+                        CVAT Connection
+                    </h2>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="cvatUrl">Server URL</label>
+                            <input type="url" id="cvatUrl" class="form-input" value="{{ cvat_url or 'http://localhost:8080' }}" placeholder="https://cvat.example.com" autocomplete="url">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="username">Username</label>
+                            <input type="text" id="username" class="form-input" value="{{ cvat_username }}" placeholder="your_username" autocomplete="username">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="password">Password</label>
+                            <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+                        </div>
                     </div>
-                    <button onclick="randomSelect()" id="randomSelectBtn">Select Random Images</button>
-                    <button onclick="debugLocalTask()" style="background: #607D8B; margin-left: 10px;">Debug Local Task</button>
-                </div>
-                <p style="font-size: 13px; color: #666; margin-top: 10px;">
-                    <strong>Note:</strong> When no Job ID is specified, this will select X random images from <strong>each job</strong> in the task.
-                </p>
 
-                <!-- Duplicate Check Option -->
-                <div style="margin-top: 15px; padding: 15px; background: #fff3e0; border-radius: 6px; border: 1px solid #ffcc80;">
-                    <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 10px;">
-                        <input type="checkbox" id="enableDuplicateCheck" style="margin-right: 10px; width: 18px; height: 18px;"
-                               onchange="toggleDuplicateCheckOptions()">
-                        <strong>Check for duplicates in another CVAT instance</strong>
-                    </label>
+                    <button class="btn btn-primary" onclick="testConnection()" id="connectBtn">
+                        <span class="btn-text">Connect to CVAT</span>
+                    </button>
 
-                    <div id="duplicateCheckOptions" style="display: none;">
-                        <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
+                    <div class="status-message" id="connectionStatusMsg" role="alert"></div>
+                </section>
+
+                <!-- Load Images Section -->
+                <section class="section-card">
+                    <h2 class="section-title">
+                        Load Images
+                    </h2>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="taskId">Task ID <span class="form-label-hint">(required)</span></label>
+                            <input type="number" id="taskId" class="form-input" placeholder="Enter task ID" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="jobId">Job ID <span class="form-label-hint">(optional)</span></label>
+                            <input type="number" id="jobId" class="form-input" placeholder="Leave empty for entire task" min="1">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="loadImages()" id="loadBtn">
+                        <span class="btn-text">Load All Images</span>
+                    </button>
+
+                    <div class="status-message" id="loadStatusMsg" role="alert"></div>
+                </section>
+
+                <!-- Random Selection Section -->
+                <section class="section-card">
+                    <h2 class="section-title">
+                        Random Selection
+                    </h2>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="randomCount">Images per Job</label>
+                            <input type="number" id="randomCount" class="form-input" value="10" min="1" max="1000">
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-purple" onclick="randomSelect()" id="randomSelectBtn">
+                            <span class="btn-text">Select Random Images</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="debugLocalTask()">
+                            Debug Task
+                        </button>
+                    </div>
+
+                    <!-- Duplicate Check Toggle -->
+                    <div style="margin-top: var(--space-5);">
+                        <label class="toggle-wrapper">
+                            <input type="checkbox" class="toggle-input" id="enableDuplicateCheck" onchange="toggleDuplicateCheckOptions()">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Check for duplicates in another CVAT instance</span>
+                        </label>
+                    </div>
+
+                    <!-- Duplicate Check Options (expandable) -->
+                    <div class="expandable-panel" id="duplicateCheckOptions">
+                        <p style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-4);">
                             Connect to another CVAT instance to exclude images that already exist there.
                         </p>
-                        <div class="form-group">
-                            <label for="checkCvatUrl">CVAT URL to check:</label>
-                            <input type="text" id="checkCvatUrl" placeholder="http://other-cvat.com:8080">
-                        </div>
-                        <div class="form-group">
-                            <label for="checkUsername">Username:</label>
-                            <input type="text" id="checkUsername" placeholder="username">
-                        </div>
-                        <div class="form-group">
-                            <label for="checkPassword">Password:</label>
-                            <input type="password" id="checkPassword" placeholder="password">
-                        </div>
-                        <div class="form-group">
-                            <label for="checkTaskId">Task ID to check against:</label>
-                            <input type="number" id="checkTaskId" placeholder="Task ID containing existing images">
-                            <div style="font-size: 12px; color: #666; margin-top: 3px;">
-                                Images are matched by filename (ignoring path and job ID prefixes)
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="checkCvatUrl">CVAT URL to check</label>
+                                <input type="url" id="checkCvatUrl" class="form-input" placeholder="http://other-cvat.com:8080">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="checkUsername">Username</label>
+                                <input type="text" id="checkUsername" class="form-input" placeholder="username">
                             </div>
                         </div>
-                        <button onclick="testDuplicateCheckConnection()" style="background: #FF9800; margin-top: 5px;">
-                            Test Connection
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="checkPassword">Password</label>
+                                <input type="password" id="checkPassword" class="form-input" placeholder="password">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="checkTaskId">Task ID to check against</label>
+                                <input type="number" id="checkTaskId" class="form-input" placeholder="Task ID" min="1">
+                            </div>
+                        </div>
+
+                        <div class="btn-group">
+                            <button class="btn btn-warning" onclick="testDuplicateCheckConnection()">
+                                Test Connection
+                            </button>
+                            <button class="btn btn-secondary" onclick="debugRemoteTask()">
+                                Debug Remote Task
+                            </button>
+                        </div>
+
+                        <div class="status-message" id="duplicateCheckConnectionStatus" role="alert"></div>
+                    </div>
+
+                    <div class="status-message" id="randomStatusMsg" role="alert"></div>
+
+                    <div class="job-summary" id="jobSummary">
+                        <h3 class="job-summary-title">Selection Summary by Job</h3>
+                        <div id="jobSummaryContent"></div>
+                    </div>
+
+                    <div class="duplicate-summary" id="duplicateSummary">
+                        <h3 class="duplicate-summary-title">Duplicate Check Results</h3>
+                        <div id="duplicateSummaryContent"></div>
+                    </div>
+                </section>
+
+                <!-- Images Display Section -->
+                <section class="section-card images-section" id="imagesSection">
+                    <div class="images-header">
+                        <h2 class="images-count">
+                            Available Images (<span class="images-count-number" id="imageCount">0</span>)
+                        </h2>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="selectAll()" id="selectAllBtn">Select All</button>
+                            <button class="btn btn-danger" onclick="clearSelection()" id="clearSelectionBtn">Clear Selection</button>
+                            <button class="btn btn-secondary" onclick="getSelection()">Get Selected Info</button>
+                            <button class="btn btn-warning" onclick="downloadImages()" id="downloadBtn">Download as ZIP</button>
+                        </div>
+                    </div>
+                    <div class="images-grid" id="imagesGrid" role="list">
+                        <!-- Images will be loaded here -->
+                    </div>
+                </section>
+
+                <!-- Selection Summary Section -->
+                <section class="section-card summary-section" id="summarySection">
+                    <h2 class="section-title">
+                        Selection Summary
+                    </h2>
+                    <div class="summary-card">
+                        <h3 style="margin-bottom: var(--space-3);">Selected: <span id="selectedCount">0</span> images</h3>
+                        <pre class="summary-pre" id="summaryContent"></pre>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Tab Panel: Annotation Copier -->
+            <div class="tab-panel" id="copier-panel" role="tabpanel" aria-labelledby="copier-tab">
+                <!-- Dual Connection Section -->
+                <section class="section-card">
+                    <h2 class="section-title">
+                        Connect to CVAT Instances
+                    </h2>
+
+                    <div class="dual-layout">
+                        <!-- Source CVAT -->
+                        <div class="connection-box source">
+                            <h3 class="connection-box-title">Source CVAT (with annotations)</h3>
+                            <div class="form-group">
+                                <label class="form-label" for="sourceUrl">CVAT URL</label>
+                                <input type="url" id="sourceUrl" class="form-input" value="{{ cvat_url or 'http://localhost:8080' }}" placeholder="http://source-cvat.com">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="sourceUsername">Username</label>
+                                <input type="text" id="sourceUsername" class="form-input" value="{{ cvat_username }}" placeholder="username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="sourcePassword">Password</label>
+                                <input type="password" id="sourcePassword" class="form-input" placeholder="password">
+                            </div>
+                        </div>
+
+                        <!-- Target CVAT -->
+                        <div class="connection-box target">
+                            <h3 class="connection-box-title">Target CVAT (without annotations)</h3>
+                            <div class="form-group">
+                                <label class="form-label" for="targetUrl">CVAT URL</label>
+                                <input type="url" id="targetUrl" class="form-input" placeholder="http://target-cvat.com">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="targetUsername">Username</label>
+                                <input type="text" id="targetUsername" class="form-input" placeholder="username">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="targetPassword">Password</label>
+                                <input type="password" id="targetPassword" class="form-input" placeholder="password">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-block" onclick="testDualConnection()" style="margin-top: var(--space-4);">
+                        Connect to Both Instances
+                    </button>
+
+                    <div class="status-message" id="dualConnectionStatus" role="alert"></div>
+                </section>
+
+                <!-- Copy Annotations Section -->
+                <section class="section-card">
+                    <h2 class="section-title">
+                        Copy Annotations
+                    </h2>
+
+                    <div class="dual-layout">
+                        <!-- Source Task/Job -->
+                        <div class="connection-box source">
+                            <h3 class="connection-box-title">Source</h3>
+                            <div class="form-group">
+                                <label class="form-label" for="sourceTaskId">Task ID <span class="form-label-hint">(required)</span></label>
+                                <input type="number" id="sourceTaskId" class="form-input" placeholder="Enter source task ID" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="sourceJobId">Job ID <span class="form-label-hint">(optional)</span></label>
+                                <input type="number" id="sourceJobId" class="form-input" placeholder="Leave empty for task-level" min="1">
+                            </div>
+                            <button class="btn btn-primary btn-block" onclick="previewAnnotations()">
+                                Preview Annotations
+                            </button>
+                        </div>
+
+                        <!-- Target Task/Job -->
+                        <div class="connection-box target">
+                            <h3 class="connection-box-title">Target</h3>
+                            <div class="form-group">
+                                <label class="form-label" for="targetTaskId">Task ID <span class="form-label-hint">(required)</span></label>
+                                <input type="number" id="targetTaskId" class="form-input" placeholder="Enter target task ID" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="targetJobId">Job ID <span class="form-label-hint">(optional)</span></label>
+                                <input type="number" id="targetJobId" class="form-input" placeholder="Leave empty for task-level" min="1">
+                            </div>
+                            <button class="btn btn-warning btn-block" onclick="previewTargetAnnotations()">
+                                Preview Target
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="btn-group" style="margin-top: var(--space-5);">
+                        <button class="btn btn-purple" onclick="previewMatches()">
+                            Preview Filename Matches
                         </button>
-                        <button onclick="debugRemoteTask()" style="background: #9C27B0; margin-top: 5px; margin-left: 10px;">
-                            Debug Remote Task (Console)
+                        <button class="btn btn-primary" onclick="copyAnnotations()">
+                            Copy Annotations
                         </button>
-                        <div id="duplicateCheckConnectionStatus" class="status"></div>
                     </div>
-                </div>
 
-                <div id="randomStatus" class="status"></div>
-                <div id="jobSummary" style="display: none; margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
-                    <h3 style="font-size: 14px; margin-bottom: 10px;">Selection Summary by Job:</h3>
-                    <div id="jobSummaryContent"></div>
-                </div>
-                <div id="duplicateSummary" style="display: none; margin-top: 15px; padding: 10px; background: #e8f5e9; border-radius: 4px; border-left: 4px solid #4CAF50;">
-                    <h3 style="font-size: 14px; margin-bottom: 10px; color: #2e7d32;">Duplicate Check Results:</h3>
-                    <div id="duplicateSummaryContent"></div>
-                </div>
+                    <div class="status-message warning" style="display: flex; margin-top: var(--space-4);">
+                        <div>
+                            <strong>Important:</strong><br>
+                            • If Job IDs are provided, annotations will be copied at the job level<br>
+                            • If Job IDs are empty, annotations will be copied at the task level<br>
+                            • Both source and target must be at the same level (both job or both task)<br>
+                            • The target task/job should have the same structure as the source
+                        </div>
+                    </div>
+
+                    <div class="status-message" id="copyStatus" role="alert"></div>
+
+                    <!-- Annotation Previews -->
+                    <div class="preview-panel source" id="annotationPreview">
+                        <div class="preview-header">Source Annotation Preview</div>
+                        <div class="stats-grid" id="previewSummary" style="padding: var(--space-5);"></div>
+                        <div class="preview-content" id="previewFiles"></div>
+                    </div>
+
+                    <div class="preview-panel target" id="targetAnnotationPreview">
+                        <div class="preview-header">Target Annotation Preview</div>
+                        <div class="stats-grid" id="targetPreviewSummary" style="padding: var(--space-5);"></div>
+                        <div class="preview-content" id="targetPreviewFiles"></div>
+                    </div>
+
+                    <div class="preview-panel match" id="matchPreview">
+                        <div class="preview-header">Filename Match Preview</div>
+                        <div class="stats-grid" id="matchSummary" style="padding: var(--space-5);"></div>
+                        <div class="preview-content" id="matchDetails"></div>
+                    </div>
+                </section>
             </div>
 
-            <!-- Images Display -->
-            <div class="section" id="imagesSection" style="display: none;">
-                <h2>Available Images (<span id="imageCount">0</span>)</h2>
-                <div class="button-group">
-                    <button onclick="selectAll()" id="selectAllBtn">Select All</button>
-                    <button onclick="clearSelection()" id="clearSelectionBtn">Clear Selection</button>
-                    <button onclick="getSelection()">Get Selected Info</button>
-                    <button onclick="downloadImages()" id="downloadBtn">Download as ZIP</button>
-                </div>
-                <div class="images-grid" id="imagesGrid">
-                    <!-- Images will be loaded here -->
-                </div>
-            </div>
-
-            <!-- Selection Summary -->
-            <div class="section" id="summarySection" style="display: none;">
-                <h2>Selection Summary</h2>
-                <div class="selection-summary">
-                    <h3>Selected: <span id="selectedCount">0</span> images</h3>
-                    <pre id="summaryContent"></pre>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 2: Annotation Copier -->
-        <div id="copier-tab" class="tab-content">
-            <!-- Dual Connection Section -->
-            <div class="section">
-                <h2>Connect to CVAT Instances</h2>
-                <div class="dual-connection">
-                    <!-- Source CVAT -->
-                    <div class="connection-box source">
-                        <h3>📥 Source CVAT (with annotations)</h3>
-                        <div class="form-group">
-                            <label for="sourceUrl">CVAT URL:</label>
-                            <input type="text" id="sourceUrl" value="{{ cvat_url or 'http://35.154.159.242:8080' }}" placeholder="http://source-cvat.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="sourceUsername">Username:</label>
-                            <input type="text" id="sourceUsername" value="{{ cvat_username }}" placeholder="username">
-                        </div>
-                        <div class="form-group">
-                            <label for="sourcePassword">Password:</label>
-                            <input type="password" id="sourcePassword" placeholder="password">
-                        </div>
-                    </div>
-
-                    <!-- Target CVAT -->
-                    <div class="connection-box target">
-                        <h3>📤 Target CVAT (without annotations)</h3>
-                        <div class="form-group">
-                            <label for="targetUrl">CVAT URL:</label>
-                            <input type="text" id="targetUrl" placeholder="http://target-cvat.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="targetUsername">Username:</label>
-                            <input type="text" id="targetUsername" placeholder="username">
-                        </div>
-                        <div class="form-group">
-                            <label for="targetPassword">Password:</label>
-                            <input type="password" id="targetPassword" placeholder="password">
-                        </div>
-                    </div>
-                </div>
-                <button onclick="testDualConnection()" style="width: 100%; margin-top: 15px;">Connect to Both Instances</button>
-                <div id="dualConnectionStatus" class="status"></div>
-            </div>
-
-            <!-- Copy Annotations Section -->
-            <div class="section">
-                <h2>Copy Annotations</h2>
-                <div class="dual-connection">
-                    <!-- Source Task/Job -->
-                    <div class="connection-box source">
-                        <h3>📥 Source</h3>
-                        <div class="form-group">
-                            <label for="sourceTaskId">Task ID: <span style="color: red;">*</span></label>
-                            <input type="number" id="sourceTaskId" placeholder="Enter source task ID">
-                        </div>
-                        <div class="form-group">
-                            <label for="sourceJobId">Job ID: <span style="color: #999;">(optional)</span></label>
-                            <input type="number" id="sourceJobId" placeholder="Leave empty for task-level copy">
-                        </div>
-                        <button onclick="previewAnnotations()" style="width: 100%; background: #2196F3; margin-top: 10px;">👁️ Preview Annotations</button>
-                    </div>
-
-                    <!-- Target Task/Job -->
-                    <div class="connection-box target">
-                        <h3>📤 Target</h3>
-                        <div class="form-group">
-                            <label for="targetTaskId">Task ID: <span style="color: red;">*</span></label>
-                            <input type="number" id="targetTaskId" placeholder="Enter target task ID">
-                        </div>
-                        <div class="form-group">
-                            <label for="targetJobId">Job ID: <span style="color: #999;">(optional)</span></label>
-                            <input type="number" id="targetJobId" placeholder="Leave empty for task-level copy">
-                        </div>
-                        <button onclick="previewTargetAnnotations()" style="width: 100%; background: #FF9800; margin-top: 10px;">👁️ Preview Target</button>
-                    </div>
-                </div>
-
-                <button onclick="previewMatches()" style="background: #9C27B0; margin-bottom: 10px;">🔍 Preview Filename Matches</button>
-                <button onclick="copyAnnotations()" class="copy-btn">🔄 Copy Annotations</button>
-
-                <p style="font-size: 13px; color: #666; margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px;">
-                    <strong>⚠️ Important:</strong>
-                    <br>• If Job IDs are provided, annotations will be copied at the job level
-                    <br>• If Job IDs are empty, annotations will be copied at the task level
-                    <br>• Both source and target must be at the same level (both job or both task)
-                    <br>• The target task/job should have the same structure as the source
-                </p>
-
-                <div id="copyStatus" class="status"></div>
-
-                <!-- Source Annotation Preview Section -->
-                <div id="annotationPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 2px solid #2196F3;">
-                    <h3 style="color: #2196F3; margin-bottom: 10px;">📋 Source Annotation Preview</h3>
-                    <div id="previewSummary" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
-                        <!-- Summary will be inserted here -->
-                    </div>
-                    <div id="previewFiles" style="max-height: 400px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">
-                        <!-- File list will be inserted here -->
-                    </div>
-                </div>
-
-                <!-- Target Annotation Preview Section -->
-                <div id="targetAnnotationPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 2px solid #FF9800;">
-                    <h3 style="color: #FF9800; margin-bottom: 10px;">📋 Target Annotation Preview</h3>
-                    <div id="targetPreviewSummary" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
-                        <!-- Summary will be inserted here -->
-                    </div>
-                    <div id="targetPreviewFiles" style="max-height: 400px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">
-                        <!-- File list will be inserted here -->
-                    </div>
-                </div>
-
-                <!-- Filename Match Preview Section -->
-                <div id="matchPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 6px; border: 2px solid #9C27B0;">
-                    <h3 style="color: #9C27B0; margin-bottom: 10px;">🔍 Filename Match Preview</h3>
-                    <div id="matchSummary" style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 4px;">
-                        <!-- Summary will be inserted here -->
-                    </div>
-                    <div id="matchDetails" style="max-height: 400px; overflow-y: auto; background: white; padding: 10px; border-radius: 4px;">
-                        <!-- Match details will be inserted here -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 3: SVO/MP4 Best Selector -->
-        <div id="video-tab" class="tab-content">
-            <div class="section">
-                <h2>Video Frame Analysis & Selection</h2>
-                <p style="color: #666; margin-bottom: 20px;">
-                    Upload a video file (.mp4, .avi, .mov, .svo, .mkv) to automatically detect scene changes
-                    and remove static frames with no movement. This tool uses state-of-the-art computer vision techniques
-                    to identify the most informative frames in your video.
-                </p>
-
+            <!-- Tab Panel: Video Analyzer -->
+            <div class="tab-panel" id="video-panel" role="tabpanel" aria-labelledby="video-tab">
                 <!-- Video Upload Section -->
-                <div class="form-group">
-                    <label for="videoFile">Select Video File:</label>
-                    <input type="file" id="videoFile" accept=".mp4,.avi,.mov,.svo,.mkv" style="margin-bottom: 10px;">
-                    <div style="font-size: 13px; color: #666;">
-                        Supported formats: MP4, AVI, MOV, SVO, MKV
+                <section class="section-card">
+                    <h2 class="section-title">
+                        Video Frame Analysis & Selection
+                    </h2>
+
+                    <p style="color: var(--color-text-secondary); margin-bottom: var(--space-5);">
+                        Upload a video file to automatically detect scene changes and remove static frames with no movement.
+                    </p>
+
+                    <!-- File Upload -->
+                    <div class="file-upload" id="videoDropZone">
+                        <input type="file" class="file-upload-input" id="videoFile" accept=".mp4,.avi,.mov,.svo,.mkv">
+                        <div class="file-upload-icon" aria-hidden="true"></div>
+                        <div class="file-upload-text">Drop your video here or click to browse</div>
+                        <div class="file-upload-hint">Supports MP4, AVI, MOV, SVO, MKV (max 500MB)</div>
                     </div>
-                </div>
 
-                <!-- Analysis Method Selection -->
-                <div class="form-group">
-                    <label for="detectionMethod">Scene Detection Method:</label>
-                    <select id="detectionMethod" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="adaptive">Adaptive Threshold (Recommended)</option>
-                        <option value="histogram">Histogram Comparison</option>
-                    </select>
-                    <div style="font-size: 13px; color: #666; margin-top: 5px;">
-                        <strong>Adaptive:</strong> Uses statistical analysis for robust scene detection<br>
-                        <strong>Histogram:</strong> Compares color distributions between frames
-                    </div>
-                </div>
-
-                <!-- Parameter Controls -->
-                <div class="form-group">
-                    <label for="sceneThreshold">Scene Change Sensitivity: <span id="sceneThresholdValue">30</span>%</label>
-                    <input type="range" id="sceneThreshold" min="10" max="80" value="30"
-                           style="width: 100%;" oninput="document.getElementById('sceneThresholdValue').textContent=this.value">
-                    <div style="font-size: 13px; color: #666;">
-                        Lower = More sensitive (detects smaller changes), Higher = Less sensitive (only major scene changes)
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="motionThreshold">Motion Detection Sensitivity: <span id="motionThresholdValue">2.0</span></label>
-                    <input type="range" id="motionThreshold" min="0.5" max="10.0" value="2.0" step="0.5"
-                           style="width: 100%;" oninput="document.getElementById('motionThresholdValue').textContent=this.value">
-                    <div style="font-size: 13px; color: #666;">
-                        Threshold for detecting movement between frames
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="minSceneLength">Minimum Scene Length (frames): <span id="minSceneLengthValue">15</span></label>
-                    <input type="range" id="minSceneLength" min="5" max="60" value="15"
-                           style="width: 100%;" oninput="document.getElementById('minSceneLengthValue').textContent=this.value">
-                    <div style="font-size: 13px; color: #666;">
-                        Prevents detecting very short scene changes (reduces noise)
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="targetFps">Target FPS for Analysis (optional):</label>
-                    <input type="number" id="targetFps" min="0.1" max="60" step="0.1" placeholder="Leave empty to use original FPS"
-                           style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    <div style="font-size: 13px; color: #666;">
-                        If specified, video will be sampled at this FPS rate during analysis (e.g., 1 = 1 frame per second). Leave empty to analyze all frames.
-                    </div>
-                </div>
-
-                <button onclick="analyzeVideo()" class="button" style="margin-top: 10px;">
-                    Analyze Video
-                </button>
-
-                <div id="videoAnalysisProgress" style="display: none; margin-top: 15px; padding: 15px; background: #f0f8ff; border-radius: 4px;">
-                    <div style="color: #2196F3;">⏳ Analyzing video... This may take a few moments.</div>
-                    <div style="font-size: 13px; color: #666; margin-top: 5px;">Processing frames and detecting scenes...</div>
-                </div>
-            </div>
-
-            <!-- Analysis Results Section -->
-            <div id="videoResultsSection" class="section" style="display: none;">
-                <h2>Analysis Results</h2>
-
-                <div id="videoInfoDisplay" style="background: #f9f9f9; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
-                    <!-- Video info will be inserted here -->
-                </div>
-
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-                    <div style="background: #e3f2fd; padding: 15px; border-radius: 4px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; color: #2196F3;" id="sceneCountDisplay">0</div>
-                        <div style="color: #666; font-size: 14px;">Scene Changes Detected</div>
-                    </div>
-                    <div style="background: #e8f5e9; padding: 15px; border-radius: 4px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; color: #4CAF50;" id="motionFramesDisplay">0</div>
-                        <div style="color: #666; font-size: 14px;">Frames with Motion</div>
-                    </div>
-                    <div style="background: #ffebee; padding: 15px; border-radius: 4px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; color: #f44336;" id="staticFramesDisplay">0</div>
-                        <div style="color: #666; font-size: 14px;">Static Frames</div>
-                    </div>
-                </div>
-
-                <!-- Filter Options -->
-                <div class="form-group">
-                    <label>Frame Selection Strategy:</label>
-                    <select id="filterMode" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="scenes">Scene Changes Only</option>
-                        <option value="motion" selected>Frames with Motion Only</option>
-                        <option value="both">Scene Changes OR Motion (Union)</option>
-                    </select>
-                    <div style="font-size: 13px; color: #666; margin-top: 5px;">
-                        <strong>Scene Changes:</strong> Frames where significant visual changes occur<br>
-                        <strong>Motion:</strong> Frames with detected movement<br>
-                        <strong>Union:</strong> Combines both criteria for maximum coverage
-                    </div>
-                </div>
-
-                <button onclick="applyFrameFilter()" class="button" style="margin-top: 10px;">
-                    Apply Filter & Select Frames
-                </button>
-
-                <div id="filterResultsDisplay" style="margin-top: 15px; display: none;">
-                    <div style="background: #f0f8ff; padding: 15px; border-radius: 4px;">
-                        <div style="font-size: 18px; font-weight: bold; color: #2196F3; margin-bottom: 10px;">
-                            Selected <span id="selectedFrameCount">0</span> frames
+                    <!-- Analysis Options -->
+                    <div style="margin-top: var(--space-6);">
+                        <div class="form-group">
+                            <label class="form-label" for="detectionMethod">Scene Detection Method</label>
+                            <div class="select-wrapper">
+                                <select id="detectionMethod" class="form-select">
+                                    <option value="adaptive">Adaptive Threshold (Recommended)</option>
+                                    <option value="histogram">Histogram Comparison</option>
+                                </select>
+                                <span class="select-arrow" aria-hidden="true">▼</span>
+                            </div>
                         </div>
-                        <div style="font-size: 13px; color: #666;">
-                            Static frames removed: <span id="removedFrameCount">0</span>
-                        </div>
-                        <button onclick="downloadSelectedFrames()" id="downloadFramesBtn" style="margin-top: 15px; width: 100%; background: #4CAF50;">
-                            Download Selected Frames as ZIP
-                        </button>
-                    </div>
 
-                    <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
-                        <div style="font-weight: bold; color: #856404;">📊 Frame Analysis Summary</div>
-                        <div id="frameSummary" style="font-size: 13px; color: #856404; margin-top: 5px;">
-                            <!-- Summary will be inserted here -->
+                        <div class="slider-wrapper">
+                            <div class="slider-header">
+                                <label class="form-label" for="sceneThreshold">Scene Change Sensitivity</label>
+                                <span class="slider-value" id="sceneThresholdValue">30%</span>
+                            </div>
+                            <input type="range" class="slider-input" id="sceneThreshold" min="10" max="80" value="30" oninput="document.getElementById('sceneThresholdValue').textContent=this.value+'%'">
+                            <div class="slider-hint">Lower = More sensitive, Higher = Less sensitive</div>
+                        </div>
+
+                        <div class="slider-wrapper">
+                            <div class="slider-header">
+                                <label class="form-label" for="motionThreshold">Motion Detection Sensitivity</label>
+                                <span class="slider-value" id="motionThresholdValue">2.0</span>
+                            </div>
+                            <input type="range" class="slider-input" id="motionThreshold" min="0.5" max="10.0" value="2.0" step="0.5" oninput="document.getElementById('motionThresholdValue').textContent=this.value">
+                            <div class="slider-hint">Threshold for detecting movement between frames</div>
+                        </div>
+
+                        <div class="slider-wrapper">
+                            <div class="slider-header">
+                                <label class="form-label" for="minSceneLength">Minimum Scene Length (frames)</label>
+                                <span class="slider-value" id="minSceneLengthValue">15</span>
+                            </div>
+                            <input type="range" class="slider-input" id="minSceneLength" min="5" max="60" value="15" oninput="document.getElementById('minSceneLengthValue').textContent=this.value">
+                            <div class="slider-hint">Prevents detecting very short scene changes</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="targetFps">Target FPS for Analysis <span class="form-label-hint">(optional)</span></label>
+                            <input type="number" id="targetFps" class="form-input" min="0.1" max="60" step="0.1" placeholder="Leave empty to use original FPS">
                         </div>
                     </div>
 
-                    <div style="margin-top: 15px; max-height: 300px; overflow-y: auto; background: #f9f9f9; padding: 10px; border-radius: 4px;">
-                        <div style="font-weight: bold; margin-bottom: 10px;">Selected Frame Indices:</div>
-                        <div id="selectedFrameList" style="font-size: 13px; line-height: 1.8;">
-                            <!-- Frame list will be inserted here -->
+                    <button class="btn btn-primary btn-block" onclick="analyzeVideo()" id="analyzeBtn" style="margin-top: var(--space-4);">
+                        Analyze Video
+                    </button>
+
+                    <div class="progress-wrapper" id="videoAnalysisProgress">
+                        <div class="progress-text">
+                            <span class="progress-spinner"></span>
+                            <span>Analyzing video... This may take a few moments.</span>
+                        </div>
+                        <div class="progress-bar-track">
+                            <div class="progress-bar-fill" id="analysisProgressBar" style="width: 0%"></div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </section>
 
-            <!-- Recommendations Section -->
-            <div class="section">
-                <h2>💡 Recommendations & Tips</h2>
-                <div style="font-size: 14px; color: #666; line-height: 1.8;">
-                    <p><strong>For best results:</strong></p>
-                    <ul style="margin-left: 20px;">
-                        <li><strong>Scene Detection:</strong> Use when you want to identify major transitions in your video (e.g., camera cuts, location changes)</li>
-                        <li><strong>Motion Detection:</strong> Use to remove static frames where nothing is happening (e.g., paused video, still camera)</li>
+                <!-- Analysis Results Section -->
+                <section class="section-card" id="videoResultsSection" style="display: none;">
+                    <h2 class="section-title">
+                        Analysis Results
+                    </h2>
+
+                    <div id="videoInfoDisplay" style="background: var(--color-bg-primary); padding: var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-5);"></div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card primary">
+                            <div class="stat-value" id="sceneCountDisplay">0</div>
+                            <div class="stat-label">Scene Changes Detected</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="stat-value" id="motionFramesDisplay">0</div>
+                            <div class="stat-label">Frames with Motion</div>
+                        </div>
+                        <div class="stat-card danger">
+                            <div class="stat-value" id="staticFramesDisplay">0</div>
+                            <div class="stat-label">Static Frames</div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Options -->
+                    <div class="form-group">
+                        <label class="form-label" for="filterMode">Frame Selection Strategy</label>
+                        <div class="select-wrapper">
+                            <select id="filterMode" class="form-select">
+                                <option value="scenes">Scene Changes Only</option>
+                                <option value="motion" selected>Frames with Motion Only</option>
+                                <option value="both">Scene Changes OR Motion (Union)</option>
+                            </select>
+                            <span class="select-arrow" aria-hidden="true">▼</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary btn-block" onclick="applyFrameFilter()">
+                        Apply Filter & Select Frames
+                    </button>
+
+                    <div id="filterResultsDisplay" style="display: none; margin-top: var(--space-5);">
+                        <div style="background: var(--color-primary-light); padding: var(--space-5); border-radius: var(--radius-lg);">
+                            <div style="font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-primary); margin-bottom: var(--space-3);">
+                                Selected <span id="selectedFrameCount">0</span> frames
+                            </div>
+                            <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+                                Static frames removed: <span id="removedFrameCount">0</span>
+                            </div>
+                            <button class="btn btn-success btn-block" onclick="downloadSelectedFrames()" id="downloadFramesBtn" style="margin-top: var(--space-4);">
+                                Download Selected Frames as ZIP
+                            </button>
+                        </div>
+
+                        <div class="status-message warning visible" style="margin-top: var(--space-4);">
+                            <div id="frameSummary"></div>
+                        </div>
+
+                        <div style="margin-top: var(--space-4); max-height: 300px; overflow-y: auto; background: var(--color-bg-secondary); padding: var(--space-4); border-radius: var(--radius-md);">
+                            <div style="font-weight: var(--font-weight-semibold); margin-bottom: var(--space-3);">Selected Frame Indices:</div>
+                            <div id="selectedFrameList" style="font-size: var(--font-size-sm); line-height: var(--line-height-relaxed);"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Recommendations -->
+                <section class="recommendations">
+                    <h2 class="recommendations-title">
+                        <span aria-hidden="true">💡</span>
+                        Recommendations & Tips
+                    </h2>
+                    <ul class="recommendations-list">
+                        <li><strong>Scene Detection:</strong> Use when you want to identify major transitions (camera cuts, location changes)</li>
+                        <li><strong>Motion Detection:</strong> Use to remove static frames where nothing is happening</li>
                         <li><strong>Adaptive Method:</strong> Works well with most video types and lighting conditions</li>
                         <li><strong>Histogram Method:</strong> Better for videos with consistent lighting but different content</li>
-                        <li><strong>Sensitivity Tuning:</strong> Start with default values, then adjust based on your specific video content</li>
+                        <li><strong>Sensitivity Tuning:</strong> Start with default values, then adjust based on your video</li>
                         <li><strong>Min Scene Length:</strong> Increase if you're getting too many false scene detections</li>
                     </ul>
-                    <p style="margin-top: 15px;"><strong>State-of-the-art techniques used:</strong></p>
-                    <ul style="margin-left: 20px;">
-                        <li>Adaptive statistical thresholding for scene boundary detection</li>
-                        <li>HSV color space histogram comparison for robust scene matching</li>
-                        <li>Frame differencing with Gaussian blur for motion detection</li>
-                        <li>Morphological operations for noise reduction</li>
-                    </ul>
-                </div>
+                </section>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
+        // ============================================================================
+        // CVAT Labeling Tools - JavaScript Application
+        // ============================================================================
+
+        // ---- State Management ----
         let currentImages = [];
         let connected = false;
+        let videoAnalysisData = null;
+        let currentSelectedFrames = [];
 
-        // Tab switching
+        // ---- Keyboard Navigation Detection ----
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                document.body.classList.add('keyboard-nav');
+            }
+        });
+
+        document.addEventListener('mousedown', () => {
+            document.body.classList.remove('keyboard-nav');
+        });
+
+        // ---- Tab Switching with Animation ----
         function switchTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.classList.remove('active');
+            // Update segment buttons
+            document.querySelectorAll('.segment-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.setAttribute('aria-selected', 'false');
             });
 
-            // Show selected tab
-            if (tabName === 'selector') {
-                document.getElementById('selector-tab').classList.add('active');
-                document.querySelectorAll('.tab')[0].classList.add('active');
-            } else if (tabName === 'copier') {
-                document.getElementById('copier-tab').classList.add('active');
-                document.querySelectorAll('.tab')[1].classList.add('active');
-            } else if (tabName === 'video') {
-                document.getElementById('video-tab').classList.add('active');
-                document.querySelectorAll('.tab')[2].classList.add('active');
+            // Update tab panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+
+            // Activate selected tab
+            const activeBtn = document.getElementById(`${tabName}-tab`);
+            const activePanel = document.getElementById(`${tabName}-panel`);
+
+            if (activeBtn && activePanel) {
+                activeBtn.classList.add('active');
+                activeBtn.setAttribute('aria-selected', 'true');
+                activePanel.classList.add('active');
+            }
+
+            // Animate indicator
+            updateIndicator();
+        }
+
+        function updateIndicator() {
+            const activeBtn = document.querySelector('.segment-btn.active');
+            const indicator = document.querySelector('.segment-indicator');
+
+            if (activeBtn && indicator) {
+                const btnRect = activeBtn.getBoundingClientRect();
+                const containerRect = activeBtn.parentElement.getBoundingClientRect();
+
+                indicator.style.width = `${btnRect.width}px`;
+                indicator.style.transform = `translateX(${btnRect.left - containerRect.left - 3}px)`;
             }
         }
 
-        function showStatus(elementId, message, type) {
-            const statusDiv = document.getElementById(elementId);
-            statusDiv.textContent = message;
-            statusDiv.className = 'status ' + type;
-            statusDiv.style.display = 'block';
+        // Initialize indicator on load
+        window.addEventListener('load', updateIndicator);
+        window.addEventListener('resize', updateIndicator);
+
+        // ---- Toast Notifications ----
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerHTML = `
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('visible');
+            });
+
+            // Remove after delay
+            setTimeout(() => {
+                toast.classList.remove('visible');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        // ===== IMAGE SELECTOR TAB FUNCTIONS =====
+        // ---- Status Message Helper ----
+        function showStatus(elementId, message, type) {
+            const statusDiv = document.getElementById(elementId);
+            if (!statusDiv) return;
 
+            statusDiv.className = `status-message ${type} visible`;
+            statusDiv.innerHTML = `
+                <span>${message}</span>
+            `;
+        }
+
+        // ---- Connection Status Update ----
+        function updateConnectionStatus(isConnected, text) {
+            const status = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionText');
+
+            if (isConnected) {
+                status.classList.remove('disconnected');
+                statusText.textContent = text || 'Connected';
+            } else {
+                status.classList.add('disconnected');
+                statusText.textContent = text || 'Not Connected';
+            }
+        }
+
+        // ---- API Functions ----
         async function testConnection() {
             const url = document.getElementById('cvatUrl').value;
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
             if (!url || !username || !password) {
-                showStatus('connectionStatus', 'Please fill in all fields', 'error');
+                showStatus('connectionStatusMsg', 'Please fill in all connection fields', 'error');
                 return;
             }
 
-            showStatus('connectionStatus', 'Testing connection...', 'info');
+            const btn = document.getElementById('connectBtn');
+            btn.classList.add('btn-loading');
 
             try {
                 const response = await fetch('/api/test-connection', {
@@ -798,17 +2122,21 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus('connectionStatus', `${data.message} | Connected to: ${url}`, 'success');
+                    showStatus('connectionStatusMsg', data.message, 'success');
+                    updateConnectionStatus(true, `Connected to ${new URL(url).hostname}`);
                     connected = true;
-                    // Store the connected URL for reference
-                    window.connectedCvatUrl = url;
+                    showToast('Connected to CVAT successfully!', 'success');
                 } else {
-                    showStatus('connectionStatus', data.message, 'error');
+                    showStatus('connectionStatusMsg', data.message, 'error');
+                    updateConnectionStatus(false);
                     connected = false;
                 }
             } catch (error) {
-                showStatus('connectionStatus', 'Error: ' + error.message, 'error');
+                showStatus('connectionStatusMsg', 'Connection error: ' + error.message, 'error');
+                updateConnectionStatus(false);
                 connected = false;
+            } finally {
+                btn.classList.remove('btn-loading');
             }
         }
 
@@ -817,12 +2145,15 @@
             const jobId = document.getElementById('jobId').value;
 
             if (!taskId) {
-                showStatus('loadStatus', 'Please enter Task ID', 'error');
+                showStatus('loadStatusMsg', 'Please enter a Task ID', 'error');
                 return;
             }
 
+            const btn = document.getElementById('loadBtn');
+            btn.classList.add('btn-loading');
+
             const sourceText = jobId ? `from job ${jobId}` : `from entire task ${taskId}`;
-            showStatus('loadStatus', `Loading images ${sourceText}...`, 'info');
+            showStatus('loadStatusMsg', `Loading images ${sourceText}...`, 'info');
 
             try {
                 const response = await fetch('/api/load-images', {
@@ -836,13 +2167,16 @@
                 if (data.success) {
                     currentImages = data.images;
                     displayImages(currentImages);
-                    showStatus('loadStatus', `Loaded ${data.count} images from ${data.source}`, 'success');
-                    document.getElementById('imagesSection').style.display = 'block';
+                    showStatus('loadStatusMsg', `Loaded ${data.count} images from ${data.source}`, 'success');
+                    document.getElementById('imagesSection').classList.add('visible');
+                    showToast(`${data.count} images loaded`, 'success');
                 } else {
-                    showStatus('loadStatus', data.message, 'error');
+                    showStatus('loadStatusMsg', data.message, 'error');
                 }
             } catch (error) {
-                showStatus('loadStatus', 'Error loading images: ' + error.message, 'error');
+                showStatus('loadStatusMsg', 'Error loading images: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
             }
         }
 
@@ -851,47 +2185,69 @@
             grid.innerHTML = '';
             document.getElementById('imageCount').textContent = images.length;
 
+            if (images.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <h3 class="empty-state-title">No Images Found</h3>
+                        <p class="empty-state-description">No images were found for the selected task or job.</p>
+                    </div>
+                `;
+                return;
+            }
+
             images.forEach((img, index) => {
-                const div = document.createElement('div');
-                div.className = 'image-item';
-
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = `img-${index}`;
-                checkbox.dataset.frame = img.frame;
-                checkbox.dataset.taskId = img.task_id;
-                checkbox.dataset.jobId = img.job_id || '';
-                checkbox.dataset.filename = img.filename || `frame_${img.frame}`;
-
-                const label = document.createElement('label');
-                label.htmlFor = `img-${index}`;
-                label.className = 'image-info';
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                card.setAttribute('role', 'listitem');
+                card.onclick = () => toggleImageSelection(index);
 
                 const filename = img.filename || `frame_${img.frame}`;
                 const jobIdText = img.job_id ? img.job_id : 'N/A';
 
-                label.innerHTML = `
-                    <span><strong>File:</strong> ${filename}</span>
-                    <span><strong>Frame:</strong> ${img.frame}</span>
-                    <span><strong>Job ID:</strong> ${jobIdText}</span>
+                card.innerHTML = `
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" class="checkbox-input" id="img-${index}"
+                               data-frame="${img.frame}"
+                               data-task-id="${img.task_id}"
+                               data-job-id="${img.job_id || ''}"
+                               data-filename="${filename}">
+                        <div class="checkbox-custom"></div>
+                    </div>
+                    <div class="image-info">
+                        <div class="image-filename">${filename}</div>
+                        <div class="image-meta">
+                            <span class="image-meta-item">Frame ${img.frame}</span>
+                            <span class="image-meta-item">Job ${jobIdText}</span>
+                        </div>
+                    </div>
                 `;
 
-                div.appendChild(checkbox);
-                div.appendChild(label);
-                grid.appendChild(div);
+                grid.appendChild(card);
             });
+        }
+
+        function toggleImageSelection(index) {
+            const checkbox = document.getElementById(`img-${index}`);
+            const card = checkbox.closest('.image-card');
+
+            checkbox.checked = !checkbox.checked;
+            card.classList.toggle('selected', checkbox.checked);
         }
 
         function selectAll() {
             document.querySelectorAll('#imagesGrid input[type="checkbox"]').forEach(cb => {
                 cb.checked = true;
+                cb.closest('.image-card').classList.add('selected');
             });
+            showToast('All images selected', 'info');
         }
 
         function clearSelection() {
             document.querySelectorAll('#imagesGrid input[type="checkbox"]').forEach(cb => {
                 cb.checked = false;
+                cb.closest('.image-card').classList.remove('selected');
             });
+            showToast('Selection cleared', 'info');
         }
 
         function getSelection() {
@@ -903,12 +2259,9 @@
                 filename: cb.dataset.filename
             }));
 
-            // Display summary
             document.getElementById('selectedCount').textContent = selected.length;
             document.getElementById('summaryContent').textContent = JSON.stringify(selected, null, 2);
-            document.getElementById('summarySection').style.display = 'block';
-
-            // Scroll to summary
+            document.getElementById('summarySection').classList.add('visible');
             document.getElementById('summarySection').scrollIntoView({ behavior: 'smooth' });
         }
 
@@ -918,19 +2271,18 @@
             const count = parseInt(document.getElementById('randomCount').value);
 
             if (!taskId) {
-                showStatus('randomStatus', 'Please enter Task ID first', 'error');
+                showStatus('randomStatusMsg', 'Please enter Task ID first', 'error');
                 return;
             }
 
             if (!count || count < 1) {
-                showStatus('randomStatus', 'Please enter a valid number of images', 'error');
+                showStatus('randomStatusMsg', 'Please enter a valid number of images', 'error');
                 return;
             }
 
-            const sourceText = jobId ? `${count} from job ${jobId}` : `${count} per job from task ${taskId}`;
-            showStatus('randomStatus', `Selecting ${sourceText}...`, 'info');
+            const btn = document.getElementById('randomSelectBtn');
+            btn.classList.add('btn-loading');
 
-            // Check if duplicate check is enabled
             const enableDuplicateCheck = document.getElementById('enableDuplicateCheck').checked;
             let duplicateCheckParams = null;
 
@@ -941,7 +2293,8 @@
                 const checkTaskId = document.getElementById('checkTaskId').value;
 
                 if (!checkCvatUrl || !checkUsername || !checkPassword || !checkTaskId) {
-                    showStatus('randomStatus', 'Please fill in all duplicate check fields', 'error');
+                    showStatus('randomStatusMsg', 'Please fill in all duplicate check fields', 'error');
+                    btn.classList.remove('btn-loading');
                     return;
                 }
 
@@ -951,8 +2304,6 @@
                     check_password: checkPassword,
                     check_task_id: checkTaskId
                 };
-
-                showStatus('randomStatus', `Selecting ${sourceText} and checking for duplicates...`, 'info');
             }
 
             try {
@@ -977,59 +2328,125 @@
                 if (data.success) {
                     currentImages = data.images;
                     displayImages(currentImages);
-
-                    // Auto-select all the random images
                     selectAll();
 
-                    // Show job summary if multiple jobs
                     if (data.job_summary && data.job_summary.length > 0) {
                         displayJobSummary(data.job_summary, data.per_job_count);
-                        showStatus('randomStatus',
-                            `Selected ${data.count} total images (${data.per_job_count} per job from ${data.jobs_count} jobs)`,
-                            'success');
+                        showStatus('randomStatusMsg', `Selected ${data.count} total images (${data.per_job_count} per job from ${data.jobs_count} jobs)`, 'success');
                     } else {
-                        document.getElementById('jobSummary').style.display = 'none';
-                        showStatus('randomStatus',
-                            `Selected ${data.count} random images from ${data.source}`,
-                            'success');
+                        document.getElementById('jobSummary').classList.remove('visible');
+                        showStatus('randomStatusMsg', `Selected ${data.count} random images from ${data.source}`, 'success');
                     }
 
-                    // Show duplicate check summary if applicable
                     if (data.duplicate_check_summary) {
                         displayDuplicateSummary(data.duplicate_check_summary);
                     } else {
-                        document.getElementById('duplicateSummary').style.display = 'none';
+                        document.getElementById('duplicateSummary').classList.remove('visible');
                     }
 
-                    document.getElementById('imagesSection').style.display = 'block';
+                    document.getElementById('imagesSection').classList.add('visible');
+                    showToast(`${data.count} images selected`, 'success');
                 } else {
-                    // Show detailed error message including connection URL if available
-                    let errorMsg = data.message;
-                    if (data.connection_url) {
-                        errorMsg += `\n\nConnected CVAT: ${data.connection_url}`;
-                    }
-                    showStatus('randomStatus', errorMsg, 'error');
+                    showStatus('randomStatusMsg', data.message, 'error');
                 }
             } catch (error) {
-                showStatus('randomStatus', 'Error selecting random images: ' + error.message, 'error');
+                showStatus('randomStatusMsg', 'Error selecting random images: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
             }
         }
 
         function toggleDuplicateCheckOptions() {
             const checkbox = document.getElementById('enableDuplicateCheck');
             const options = document.getElementById('duplicateCheckOptions');
-            options.style.display = checkbox.checked ? 'block' : 'none';
+            options.classList.toggle('visible', checkbox.checked);
+        }
+
+        function displayJobSummary(summary, perJobCount) {
+            const summaryDiv = document.getElementById('jobSummaryContent');
+            summaryDiv.innerHTML = summary.map(job => {
+                if (job.error) {
+                    return `<div class="job-summary-item error"><strong>Job ${job.job_id}:</strong> Error: ${job.error}</div>`;
+                }
+
+                const duplicatesInfo = job.duplicates_skipped ? ` (${job.duplicates_skipped} duplicates skipped)` : '';
+                const shortfall = job.requested ? job.requested - job.selected : perJobCount - job.selected;
+                const shortfallInfo = shortfall > 0 ? ` (${shortfall} short)` : '';
+
+                return `<div class="job-summary-item"><strong>Job ${job.job_id}:</strong> ${job.selected}/${job.total} images${duplicatesInfo}${shortfallInfo}</div>`;
+            }).join('');
+
+            document.getElementById('jobSummary').classList.add('visible');
+        }
+
+        function displayDuplicateSummary(summary) {
+            const summaryDiv = document.getElementById('duplicateSummaryContent');
+            summaryDiv.innerHTML = `
+                <div style="font-size: var(--font-size-sm);">
+                    <div><strong>Total candidates:</strong> ${summary.total_candidates}</div>
+                    <div><strong>Requested per job:</strong> ${summary.requested_count || summary.requested_per_job || 'N/A'}</div>
+                    <div><strong>Duplicates skipped:</strong> ${summary.duplicates_skipped || summary.duplicates_found || 0}</div>
+                    <div><strong>Unique images selected:</strong> ${summary.unique_selected}</div>
+                </div>
+            `;
+            document.getElementById('duplicateSummary').classList.add('visible');
+        }
+
+        async function downloadImages() {
+            const checkboxes = document.querySelectorAll('#imagesGrid input[type="checkbox"]:checked');
+            const selected = Array.from(checkboxes).map(cb => ({
+                frame: parseInt(cb.dataset.frame),
+                task_id: cb.dataset.taskId,
+                job_id: cb.dataset.jobId || null,
+                filename: cb.dataset.filename
+            }));
+
+            if (selected.length === 0) {
+                showToast('No images selected', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('downloadBtn');
+            btn.classList.add('btn-loading');
+            showToast(`Downloading ${selected.length} images...`, 'info');
+
+            try {
+                const response = await fetch('/api/download-images', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ frames: selected })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `cvat_images_${Date.now()}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showToast(`Downloaded ${selected.length} images!`, 'success');
+                } else {
+                    const data = await response.json();
+                    showToast('Download failed: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showToast('Error downloading images: ' + error.message, 'error');
+            } finally {
+                btn.classList.remove('btn-loading');
+            }
         }
 
         async function debugLocalTask() {
             const taskId = document.getElementById('taskId').value;
-
             if (!taskId) {
-                showStatus('randomStatus', 'Please enter a Task ID first', 'error');
+                showStatus('randomStatusMsg', 'Please enter a Task ID first', 'error');
                 return;
             }
 
-            showStatus('randomStatus', 'Debugging local task... Check server console for details', 'info');
+            showStatus('randomStatusMsg', 'Debugging local task... Check server console', 'info');
 
             try {
                 const response = await fetch('/api/debug-local-task', {
@@ -1041,21 +2458,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    console.log('=== LOCAL TASK DEBUG INFO ===');
-                    console.log('Task Info:', data.task_info);
-                    console.log('Jobs Count:', data.jobs_count);
-                    console.log('Jobs:', data.jobs);
-                    console.log('Total Frames:', data.total_frames);
-                    console.log('Sample Filenames:', data.sample_filenames);
-                    console.log('==============================');
-
-                    let statusMsg = `Local Task "${data.task_info.name}" - ${data.jobs_count} jobs, ${data.total_frames} frames. Check server console!`;
-                    showStatus('randomStatus', statusMsg, 'success');
+                    console.log('=== LOCAL TASK DEBUG INFO ===', data);
+                    showStatus('randomStatusMsg', `Task "${data.task_info.name}" - ${data.jobs_count} jobs, ${data.total_frames} frames. Check console!`, 'success');
                 } else {
-                    showStatus('randomStatus', 'Debug failed: ' + data.message, 'error');
+                    showStatus('randomStatusMsg', 'Debug failed: ' + data.message, 'error');
                 }
             } catch (error) {
-                showStatus('randomStatus', 'Error: ' + error.message, 'error');
+                showStatus('randomStatusMsg', 'Error: ' + error.message, 'error');
             }
         }
 
@@ -1066,11 +2475,11 @@
             const checkTaskId = document.getElementById('checkTaskId').value;
 
             if (!checkCvatUrl || !checkUsername || !checkPassword || !checkTaskId) {
-                showStatus('duplicateCheckConnectionStatus', 'Please fill in all fields including Task ID', 'error');
+                showStatus('duplicateCheckConnectionStatus', 'Please fill in all fields', 'error');
                 return;
             }
 
-            showStatus('duplicateCheckConnectionStatus', 'Debugging remote task... Check server console for details', 'info');
+            showStatus('duplicateCheckConnectionStatus', 'Debugging remote task...', 'info');
 
             try {
                 const response = await fetch('/api/debug-remote-task', {
@@ -1087,18 +2496,10 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    console.log('=== REMOTE TASK DEBUG INFO ===');
-                    console.log('Task Info:', data.task_info);
-                    console.log('Jobs Count:', data.jobs_count);
-                    console.log('Jobs:', data.jobs);
-                    console.log('Total Frames:', data.total_frames);
-                    console.log('Sample Filenames:', data.sample_filenames);
-                    console.log('==============================');
-
-                    let statusMsg = `✅ Task "${data.task_info.name}" - ${data.jobs_count} jobs, ${data.total_frames} frames. Check server console for details.`;
-                    showStatus('duplicateCheckConnectionStatus', statusMsg, 'success');
+                    console.log('=== REMOTE TASK DEBUG INFO ===', data);
+                    showStatus('duplicateCheckConnectionStatus', `Task "${data.task_info.name}" - ${data.jobs_count} jobs, ${data.total_frames} frames`, 'success');
                 } else {
-                    showStatus('duplicateCheckConnectionStatus', '❌ ' + data.message, 'error');
+                    showStatus('duplicateCheckConnectionStatus', data.message, 'error');
                 }
             } catch (error) {
                 showStatus('duplicateCheckConnectionStatus', 'Error: ' + error.message, 'error');
@@ -1131,140 +2532,26 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus('duplicateCheckConnectionStatus', '✅ ' + data.message, 'success');
+                    showStatus('duplicateCheckConnectionStatus', data.message, 'success');
                 } else {
-                    showStatus('duplicateCheckConnectionStatus', '❌ ' + data.message, 'error');
+                    showStatus('duplicateCheckConnectionStatus', data.message, 'error');
                 }
             } catch (error) {
                 showStatus('duplicateCheckConnectionStatus', 'Error: ' + error.message, 'error');
             }
         }
 
-        function displayDuplicateSummary(summary) {
-            const summaryDiv = document.getElementById('duplicateSummaryContent');
-            const requestedCount = summary.requested_count || summary.requested_per_job || 'N/A';
-            const duplicatesSkipped = summary.duplicates_skipped || summary.duplicates_found || 0;
-
-            summaryDiv.innerHTML = `
-                <div style="font-size: 13px;">
-                    <div><strong>Total candidates in pool:</strong> ${summary.total_candidates}</div>
-                    <div><strong>Requested per job:</strong> ${requestedCount}</div>
-                    <div><strong>Duplicates skipped:</strong> ${duplicatesSkipped}</div>
-                    <div><strong>Unique images selected:</strong> ${summary.unique_selected}</div>
-                    ${duplicatesSkipped > 0 ?
-                        `<div style="margin-top: 10px; color: #666;">
-                            <strong>Skipped duplicate filenames:</strong><br>
-                            <div style="max-height: 100px; overflow-y: auto; font-size: 12px; background: white; padding: 5px; border-radius: 4px; margin-top: 5px;">
-                                ${summary.duplicate_filenames.slice(0, 20).join('<br>')}
-                                ${summary.duplicate_filenames.length > 20 ? `<br>... and ${summary.duplicate_filenames.length - 20} more` : ''}
-                            </div>
-                        </div>` : ''
-                    }
-                </div>
-            `;
-            document.getElementById('duplicateSummary').style.display = 'block';
-        }
-
-        function displayJobSummary(summary, perJobCount) {
-            const summaryDiv = document.getElementById('jobSummaryContent');
-            summaryDiv.innerHTML = '';
-
-            summary.forEach(job => {
-                const jobDiv = document.createElement('div');
-                jobDiv.style.marginBottom = '5px';
-                jobDiv.style.fontSize = '13px';
-
-                if (job.error) {
-                    jobDiv.style.color = '#d32f2f';
-                    jobDiv.innerHTML = `
-                        <strong>Job ${job.job_id}:</strong>
-                        ❌ Error: ${job.error}
-                    `;
-                } else {
-                    const duplicatesInfo = job.duplicates_skipped ? ` (${job.duplicates_skipped} duplicates skipped)` : '';
-                    const shortfall = job.requested ? job.requested - job.selected : perJobCount - job.selected;
-                    const shortfallInfo = shortfall > 0 ? ` <span style="color: #dc3545;">(${shortfall} short - not enough unique images)</span>` : '';
-
-                    jobDiv.innerHTML = `
-                        <strong>Job ${job.job_id}:</strong>
-                        Selected ${job.selected} / ${job.total} images${duplicatesInfo}${shortfallInfo}
-                    `;
-                }
-                summaryDiv.appendChild(jobDiv);
-            });
-
-            document.getElementById('jobSummary').style.display = 'block';
-        }
-
-        async function downloadImages() {
-            const checkboxes = document.querySelectorAll('#imagesGrid input[type="checkbox"]:checked');
-            const selected = Array.from(checkboxes).map(cb => ({
-                frame: parseInt(cb.dataset.frame),
-                task_id: cb.dataset.taskId,
-                job_id: cb.dataset.jobId || null,
-                filename: cb.dataset.filename
-            }));
-
-            if (selected.length === 0) {
-                alert('No images selected. Please select images first.');
-                return;
-            }
-
-            // Disable download button and show loading
-            const downloadBtn = document.getElementById('downloadBtn');
-            const originalText = downloadBtn.textContent;
-            downloadBtn.disabled = true;
-            downloadBtn.textContent = `Downloading ${selected.length} images...`;
-
-            try {
-                const response = await fetch('/api/download-images', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ frames: selected })
-                });
-
-                if (response.ok) {
-                    // Get the blob from response
-                    const blob = await response.blob();
-
-                    // Create a download link
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `cvat_images_${Date.now()}.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-
-                    alert(`Successfully downloaded ${selected.length} images!`);
-                } else {
-                    const data = await response.json();
-                    alert('Download failed: ' + data.message);
-                }
-            } catch (error) {
-                alert('Error downloading images: ' + error.message);
-            } finally {
-                // Re-enable button
-                downloadBtn.disabled = false;
-                downloadBtn.textContent = originalText;
-            }
-        }
-
-        // ===== ANNOTATION COPIER TAB FUNCTIONS =====
-
+        // ---- Annotation Copier Functions ----
         async function testDualConnection() {
             const sourceUrl = document.getElementById('sourceUrl').value;
             const sourceUsername = document.getElementById('sourceUsername').value;
             const sourcePassword = document.getElementById('sourcePassword').value;
-
             const targetUrl = document.getElementById('targetUrl').value;
             const targetUsername = document.getElementById('targetUsername').value;
             const targetPassword = document.getElementById('targetPassword').value;
 
-            if (!sourceUrl || !sourceUsername || !sourcePassword ||
-                !targetUrl || !targetUsername || !targetPassword) {
-                showStatus('dualConnectionStatus', 'Please fill in all connection fields for both instances', 'error');
+            if (!sourceUrl || !sourceUsername || !sourcePassword || !targetUrl || !targetUsername || !targetPassword) {
+                showStatus('dualConnectionStatus', 'Please fill in all connection fields', 'error');
                 return;
             }
 
@@ -1287,22 +2574,13 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus('dualConnectionStatus',
-                        `✅ Source: ${data.source.message}\n✅ Target: ${data.target.message}`,
-                        'success');
+                    showStatus('dualConnectionStatus', `Source: ${data.source.message} | Target: ${data.target.message}`, 'success');
+                    showToast('Connected to both instances!', 'success');
                 } else {
                     let message = '';
-                    if (!data.source.success) {
-                        message += `❌ Source: ${data.source.message}\n`;
-                    } else {
-                        message += `✅ Source: ${data.source.message}\n`;
-                    }
-                    if (!data.target.success) {
-                        message += `❌ Target: ${data.target.message}`;
-                    } else {
-                        message += `✅ Target: ${data.target.message}`;
-                    }
-                    showStatus('dualConnectionStatus', message, data.success ? 'success' : 'error');
+                    if (!data.source.success) message += `Source: ${data.source.message}\n`;
+                    if (!data.target.success) message += `Target: ${data.target.message}`;
+                    showStatus('dualConnectionStatus', message, 'error');
                 }
             } catch (error) {
                 showStatus('dualConnectionStatus', 'Error: ' + error.message, 'error');
@@ -1334,9 +2612,9 @@
 
                 if (data.success) {
                     displayAnnotationPreview(data);
-                    showStatus('copyStatus', `✅ Loaded preview from ${data.source}`, 'success');
+                    showStatus('copyStatus', `Loaded preview from ${data.source}`, 'success');
                 } else {
-                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                    showStatus('copyStatus', data.message, 'error');
                 }
             } catch (error) {
                 showStatus('copyStatus', 'Error: ' + error.message, 'error');
@@ -1344,76 +2622,45 @@
         }
 
         function displayAnnotationPreview(data) {
-            const previewDiv = document.getElementById('annotationPreview');
             const summaryDiv = document.getElementById('previewSummary');
-            const filesDiv = document.getElementById('previewFiles');
-
-            // Display summary
             summaryDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
-                    <div>
-                        <strong style="color: #9C27B0; font-size: 24px;">${data.total_frames}</strong>
-                        <div style="color: #666; font-size: 13px;">Total Frames</div>
-                    </div>
-                    <div>
-                        <strong style="color: #2196F3; font-size: 24px;">${data.total_files}</strong>
-                        <div style="color: #666; font-size: 13px;">Annotated Files</div>
-                    </div>
-                    <div>
-                        <strong style="color: #4CAF50; font-size: 24px;">${data.total_shapes}</strong>
-                        <div style="color: #666; font-size: 13px;">Shapes</div>
-                    </div>
-                    <div>
-                        <strong style="color: #FF9800; font-size: 24px;">${data.total_tracks}</strong>
-                        <div style="color: #666; font-size: 13px;">Tracks</div>
-                    </div>
+                <div class="stat-card primary">
+                    <div class="stat-value">${data.total_frames}</div>
+                    <div class="stat-label">Total Frames</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.total_files}</div>
+                    <div class="stat-label">Annotated Files</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value">${data.total_shapes}</div>
+                    <div class="stat-label">Shapes</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-value">${data.total_tracks}</div>
+                    <div class="stat-label">Tracks</div>
                 </div>
             `;
 
-            // Display files with annotations
-            let filesHtml = '<div style="font-size: 13px;">';
-
+            const filesDiv = document.getElementById('previewFiles');
             if (Object.keys(data.annotated_files).length === 0) {
-                filesHtml += '<p style="text-align: center; color: #999; padding: 20px;">No annotations found</p>';
+                filesDiv.innerHTML = '<div class="empty-state"><p>No annotations found</p></div>';
             } else {
-                Object.entries(data.annotated_files).forEach(([filename, info]) => {
-                    const shapesCount = info.shapes.length;
-                    const tracksCount = info.tracks.length;
-                    const totalAnnotations = shapesCount + tracksCount;
-
-                    filesHtml += `
-                        <div style="padding: 10px; margin-bottom: 8px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #2196F3;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="flex: 1;">
-                                    <strong style="color: #333;">${filename}</strong>
-                                    <div style="color: #666; font-size: 12px; margin-top: 3px;">
-                                        Frame: ${info.frame}
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 15px; padding-left: 15px;">
-                                    <div style="text-align: center;">
-                                        <strong style="color: #4CAF50;">${shapesCount}</strong>
-                                        <div style="font-size: 11px; color: #666;">Shapes</div>
-                                    </div>
-                                    <div style="text-align: center;">
-                                        <strong style="color: #FF9800;">${tracksCount}</strong>
-                                        <div style="font-size: 11px; color: #666;">Tracks</div>
-                                    </div>
-                                </div>
-                            </div>
+                filesDiv.innerHTML = Object.entries(data.annotated_files).map(([filename, info]) => `
+                    <div class="preview-item">
+                        <div>
+                            <div class="preview-item-name">${filename}</div>
+                            <div class="preview-item-meta">Frame: ${info.frame}</div>
                         </div>
-                    `;
-                });
+                        <div class="preview-item-count">
+                            <span style="color: var(--color-success);">${info.shapes.length} shapes</span>
+                            <span style="color: var(--color-warning);">${info.tracks.length} tracks</span>
+                        </div>
+                    </div>
+                `).join('');
             }
 
-            filesHtml += '</div>';
-            filesDiv.innerHTML = filesHtml;
-
-            // Show the preview section
-            previewDiv.style.display = 'block';
-
-            // Scroll to preview
-            previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            document.getElementById('annotationPreview').classList.add('visible');
         }
 
         async function previewTargetAnnotations() {
@@ -1441,9 +2688,9 @@
 
                 if (data.success) {
                     displayTargetAnnotationPreview(data);
-                    showStatus('copyStatus', `✅ Loaded target preview from ${data.source}`, 'success');
+                    showStatus('copyStatus', `Loaded target preview from ${data.source}`, 'success');
                 } else {
-                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                    showStatus('copyStatus', data.message, 'error');
                 }
             } catch (error) {
                 showStatus('copyStatus', 'Error: ' + error.message, 'error');
@@ -1451,76 +2698,45 @@
         }
 
         function displayTargetAnnotationPreview(data) {
-            const previewDiv = document.getElementById('targetAnnotationPreview');
             const summaryDiv = document.getElementById('targetPreviewSummary');
-            const filesDiv = document.getElementById('targetPreviewFiles');
-
-            // Display summary
             summaryDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
-                    <div>
-                        <strong style="color: #9C27B0; font-size: 24px;">${data.total_frames}</strong>
-                        <div style="color: #666; font-size: 13px;">Total Frames</div>
-                    </div>
-                    <div>
-                        <strong style="color: #FF9800; font-size: 24px;">${data.total_files}</strong>
-                        <div style="color: #666; font-size: 13px;">Annotated Files</div>
-                    </div>
-                    <div>
-                        <strong style="color: #4CAF50; font-size: 24px;">${data.total_shapes}</strong>
-                        <div style="color: #666; font-size: 13px;">Shapes</div>
-                    </div>
-                    <div>
-                        <strong style="color: #FF5722; font-size: 24px;">${data.total_tracks}</strong>
-                        <div style="color: #666; font-size: 13px;">Tracks</div>
-                    </div>
+                <div class="stat-card warning">
+                    <div class="stat-value">${data.total_frames}</div>
+                    <div class="stat-label">Total Frames</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.total_files}</div>
+                    <div class="stat-label">Annotated Files</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-value">${data.total_shapes}</div>
+                    <div class="stat-label">Shapes</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-value">${data.total_tracks}</div>
+                    <div class="stat-label">Tracks</div>
                 </div>
             `;
 
-            // Display files with annotations
-            let filesHtml = '<div style="font-size: 13px;">';
-
+            const filesDiv = document.getElementById('targetPreviewFiles');
             if (Object.keys(data.annotated_files).length === 0) {
-                filesHtml += '<p style="text-align: center; color: #999; padding: 20px;">No annotations found</p>';
+                filesDiv.innerHTML = '<div class="empty-state"><p>No annotations found</p></div>';
             } else {
-                Object.entries(data.annotated_files).forEach(([filename, info]) => {
-                    const shapesCount = info.shapes.length;
-                    const tracksCount = info.tracks.length;
-                    const totalAnnotations = shapesCount + tracksCount;
-
-                    filesHtml += `
-                        <div style="padding: 10px; margin-bottom: 8px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #FF9800;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="flex: 1;">
-                                    <strong style="color: #333;">${filename}</strong>
-                                    <div style="color: #666; font-size: 12px; margin-top: 3px;">
-                                        Frame: ${info.frame}
-                                    </div>
-                                </div>
-                                <div style="display: flex; gap: 15px; padding-left: 15px;">
-                                    <div style="text-align: center;">
-                                        <strong style="color: #4CAF50;">${shapesCount}</strong>
-                                        <div style="font-size: 11px; color: #666;">Shapes</div>
-                                    </div>
-                                    <div style="text-align: center;">
-                                        <strong style="color: #FF5722;">${tracksCount}</strong>
-                                        <div style="font-size: 11px; color: #666;">Tracks</div>
-                                    </div>
-                                </div>
-                            </div>
+                filesDiv.innerHTML = Object.entries(data.annotated_files).map(([filename, info]) => `
+                    <div class="preview-item">
+                        <div>
+                            <div class="preview-item-name">${filename}</div>
+                            <div class="preview-item-meta">Frame: ${info.frame}</div>
                         </div>
-                    `;
-                });
+                        <div class="preview-item-count">
+                            <span style="color: var(--color-success);">${info.shapes.length} shapes</span>
+                            <span style="color: var(--color-warning);">${info.tracks.length} tracks</span>
+                        </div>
+                    </div>
+                `).join('');
             }
 
-            filesHtml += '</div>';
-            filesDiv.innerHTML = filesHtml;
-
-            // Show the preview section
-            previewDiv.style.display = 'block';
-
-            // Scroll to preview
-            previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            document.getElementById('targetAnnotationPreview').classList.add('visible');
         }
 
         async function previewMatches() {
@@ -1551,10 +2767,10 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showStatus('copyStatus', '', 'success');
                     displayMatchPreview(data);
+                    showStatus('copyStatus', '', 'success');
                 } else {
-                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                    showStatus('copyStatus', data.message, 'error');
                 }
             } catch (error) {
                 showStatus('copyStatus', 'Error: ' + error.message, 'error');
@@ -1562,82 +2778,50 @@
         }
 
         function displayMatchPreview(data) {
-            const previewDiv = document.getElementById('matchPreview');
             const summaryDiv = document.getElementById('matchSummary');
-            const detailsDiv = document.getElementById('matchDetails');
-
-            // Create summary
             summaryDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-                    <div style="text-align: center; padding: 10px; background: #e8f5e9; border-radius: 4px;">
-                        <strong style="color: #4CAF50; font-size: 24px;">${data.matched_count}</strong>
-                        <div style="color: #666; font-size: 13px; margin-top: 5px;">✅ Matched Files</div>
-                    </div>
-                    <div style="text-align: center; padding: 10px; background: #fff3e0; border-radius: 4px;">
-                        <strong style="color: #FF9800; font-size: 24px;">${data.unmatched_source_count}</strong>
-                        <div style="color: #666; font-size: 13px; margin-top: 5px;">⚠️ Unmatched Source</div>
-                    </div>
-                    <div style="text-align: center; padding: 10px; background: #fce4ec; border-radius: 4px;">
-                        <strong style="color: #E91E63; font-size: 24px;">${data.unmatched_target_count}</strong>
-                        <div style="color: #666; font-size: 13px; margin-top: 5px;">⚠️ Unmatched Target</div>
-                    </div>
+                <div class="stat-card success">
+                    <div class="stat-value">${data.matched_count}</div>
+                    <div class="stat-label">Matched Files</div>
                 </div>
-                <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; font-size: 13px; text-align: center;">
-                    📊 Source: ${data.total_source_files} files | Target: ${data.total_target_files} files
+                <div class="stat-card warning">
+                    <div class="stat-value">${data.unmatched_source_count}</div>
+                    <div class="stat-label">Unmatched Source</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-value">${data.unmatched_target_count}</div>
+                    <div class="stat-label">Unmatched Target</div>
                 </div>
             `;
 
-            // Create details
-            let detailsHtml = '<div style="font-size: 13px;">';
+            const detailsDiv = document.getElementById('matchDetails');
+            let html = '';
 
-            // Matched files section
             if (data.matched_files.length > 0) {
-                detailsHtml += '<h4 style="color: #4CAF50; margin: 15px 0 10px 0;">✅ Matched Files</h4>';
-                data.matched_files.forEach(match => {
-                    detailsHtml += `
-                        <div style="padding: 10px; margin-bottom: 8px; background: #f5f5f5; border-radius: 4px; border-left: 3px solid #4CAF50;">
-                            <div style="color: #2196F3; font-weight: bold; margin-bottom: 5px;">📄 ${match.base_filename}</div>
-                            <div style="font-size: 12px; color: #666; margin-left: 15px;">
-                                <div>Source: ${match.source}</div>
-                                <div>Target: ${match.target}</div>
-                            </div>
+                html += '<h4 style="color: var(--color-success); margin-bottom: var(--space-3);">Matched Files</h4>';
+                html += data.matched_files.map(match => `
+                    <div class="preview-item" style="border-left: 3px solid var(--color-success);">
+                        <div>
+                            <div class="preview-item-name">${match.base_filename}</div>
+                            <div class="preview-item-meta">Source: ${match.source}</div>
+                            <div class="preview-item-meta">Target: ${match.target}</div>
                         </div>
-                    `;
-                });
+                    </div>
+                `).join('');
             }
 
-            // Unmatched source files
             if (data.unmatched_source.length > 0) {
-                detailsHtml += '<h4 style="color: #FF9800; margin: 15px 0 10px 0;">⚠️ Unmatched Source Files (won\'t be copied)</h4>';
-                data.unmatched_source.forEach(filename => {
-                    detailsHtml += `
-                        <div style="padding: 8px; margin-bottom: 5px; background: #fff3e0; border-radius: 4px; font-size: 12px;">
-                            ${filename}
-                        </div>
-                    `;
-                });
+                html += '<h4 style="color: var(--color-warning); margin: var(--space-4) 0 var(--space-3);">Unmatched Source Files</h4>';
+                html += data.unmatched_source.map(f => `<div class="preview-item" style="border-left: 3px solid var(--color-warning);">${f}</div>`).join('');
             }
 
-            // Unmatched target files
             if (data.unmatched_target.length > 0) {
-                detailsHtml += '<h4 style="color: #E91E63; margin: 15px 0 10px 0;">⚠️ Unmatched Target Files (will remain empty)</h4>';
-                data.unmatched_target.forEach(filename => {
-                    detailsHtml += `
-                        <div style="padding: 8px; margin-bottom: 5px; background: #fce4ec; border-radius: 4px; font-size: 12px;">
-                            ${filename}
-                        </div>
-                    `;
-                });
+                html += '<h4 style="color: var(--color-danger); margin: var(--space-4) 0 var(--space-3);">Unmatched Target Files</h4>';
+                html += data.unmatched_target.map(f => `<div class="preview-item" style="border-left: 3px solid var(--color-danger);">${f}</div>`).join('');
             }
 
-            detailsHtml += '</div>';
-            detailsDiv.innerHTML = detailsHtml;
-
-            // Show the preview section
-            previewDiv.style.display = 'block';
-
-            // Scroll to preview
-            previewDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            detailsDiv.innerHTML = html;
+            document.getElementById('matchPreview').classList.add('visible');
         }
 
         async function copyAnnotations() {
@@ -1651,9 +2835,8 @@
                 return;
             }
 
-            // Validate that both are at the same level
             if ((sourceJobId && !targetJobId) || (!sourceJobId && targetJobId)) {
-                showStatus('copyStatus', 'Both source and target must be at the same level (both job or both task)', 'error');
+                showStatus('copyStatus', 'Both source and target must be at the same level', 'error');
                 return;
             }
 
@@ -1675,31 +2858,52 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    let message = `✅ ${data.message}\n`;
-                    message += `📊 Copied ${data.annotations_count} annotations (shapes + tracks)\n`;
-                    message += `📁 Source: ${data.source_frames} frames | Target: ${data.target_frames} frames\n`;
-                    message += `🔗 Matched ${data.matched_frames} frames between source and target`;
-                    if (data.skipped_annotations > 0) {
-                        message += `\n⚠️ Skipped ${data.skipped_annotations} annotations (no matching frames)`;
-                    }
-                    showStatus('copyStatus', message, 'success');
+                    showStatus('copyStatus', `${data.message} - Copied ${data.annotations_count} annotations`, 'success');
+                    showToast('Annotations copied successfully!', 'success');
                 } else {
-                    showStatus('copyStatus', '❌ ' + data.message, 'error');
+                    showStatus('copyStatus', data.message, 'error');
                 }
             } catch (error) {
                 showStatus('copyStatus', 'Error: ' + error.message, 'error');
             }
         }
 
-        // Video Analysis Tab Functions
-        let videoAnalysisData = null;
+        // ---- Video Analyzer Functions ----
+
+        // File drop zone
+        const dropZone = document.getElementById('videoDropZone');
+        const fileInput = document.getElementById('videoFile');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                showToast(`Selected: ${files[0].name}`, 'info');
+            }
+        });
 
         async function analyzeVideo() {
-            const fileInput = document.getElementById('videoFile');
             const file = fileInput.files[0];
 
             if (!file) {
-                alert('Please select a video file first');
+                showToast('Please select a video file first', 'warning');
                 return;
             }
 
@@ -1716,13 +2920,15 @@
             formData.append('motion_threshold', motionThreshold);
             formData.append('min_scene_length', minSceneLength);
 
-            // Add target FPS if specified
             if (targetFps && targetFps > 0) {
                 formData.append('target_fps', targetFps);
             }
 
-            document.getElementById('videoAnalysisProgress').style.display = 'block';
+            document.getElementById('videoAnalysisProgress').classList.add('visible');
             document.getElementById('videoResultsSection').style.display = 'none';
+
+            const btn = document.getElementById('analyzeBtn');
+            btn.classList.add('btn-loading');
 
             try {
                 const response = await fetch('/api/analyze-video', {
@@ -1735,45 +2941,39 @@
                 if (data.success) {
                     videoAnalysisData = data;
                     displayVideoResults(data);
-                    document.getElementById('videoAnalysisProgress').style.display = 'none';
+                    document.getElementById('videoAnalysisProgress').classList.remove('visible');
                     document.getElementById('videoResultsSection').style.display = 'block';
+                    showToast('Video analysis complete!', 'success');
                 } else {
-                    alert('Analysis failed: ' + data.message);
-                    document.getElementById('videoAnalysisProgress').style.display = 'none';
+                    showToast('Analysis failed: ' + data.message, 'error');
+                    document.getElementById('videoAnalysisProgress').classList.remove('visible');
                 }
             } catch (error) {
-                alert('Error analyzing video: ' + error.message);
-                document.getElementById('videoAnalysisProgress').style.display = 'none';
+                showToast('Error analyzing video: ' + error.message, 'error');
+                document.getElementById('videoAnalysisProgress').classList.remove('visible');
+            } finally {
+                btn.classList.remove('btn-loading');
             }
         }
 
         function displayVideoResults(data) {
             const info = data.video_info;
             let infoHtml = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); font-size: var(--font-size-sm);">
                     <div><strong>Total Frames:</strong> ${info.total_frames}</div>
                     <div><strong>Original FPS:</strong> ${info.fps.toFixed(2)}</div>
                     <div><strong>Resolution:</strong> ${info.width}x${info.height}</div>
-                    <div><strong>Duration:</strong> ${info.duration_seconds.toFixed(2)}s</div>`;
+                    <div><strong>Duration:</strong> ${info.duration_seconds.toFixed(2)}s</div>
+            `;
 
-            // Add analyzed frames info if target FPS was specified
             if (info.target_fps) {
                 infoHtml += `
                     <div><strong>Target FPS:</strong> ${info.target_fps.toFixed(2)}</div>
-                    <div><strong>Analyzed Frames:</strong> ${info.analyzed_frames} (every ${info.frame_skip} frames)</div>`;
+                    <div><strong>Analyzed Frames:</strong> ${info.analyzed_frames}</div>
+                `;
             }
 
-            infoHtml += `</div>`;
-
-            // Add info message if FPS downsampling was used
-            if (info.target_fps) {
-                infoHtml += `
-                    <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; border-left: 4px solid #2196F3;">
-                        <strong>ℹ️ FPS Downsampling Active:</strong> Analyzed ${info.analyzed_frames} of ${info.total_frames} frames
-                        (${((info.analyzed_frames / info.total_frames) * 100).toFixed(1)}% sampling rate)
-                    </div>`;
-            }
-
+            infoHtml += '</div>';
             document.getElementById('videoInfoDisplay').innerHTML = infoHtml;
 
             document.getElementById('sceneCountDisplay').textContent = data.scene_count;
@@ -1783,7 +2983,7 @@
 
         async function applyFrameFilter() {
             if (!videoAnalysisData) {
-                alert('Please analyze a video first');
+                showToast('Please analyze a video first', 'warning');
                 return;
             }
 
@@ -1792,9 +2992,7 @@
             try {
                 const response = await fetch('/api/filter-frames', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         motion_data: videoAnalysisData.motion_data,
                         scene_changes: videoAnalysisData.scene_changes,
@@ -1806,15 +3004,14 @@
 
                 if (data.success) {
                     displayFilterResults(data);
+                    showToast(`${data.count} frames selected`, 'success');
                 } else {
-                    alert('Filter failed: ' + data.message);
+                    showToast('Filter failed: ' + data.message, 'error');
                 }
             } catch (error) {
-                alert('Error applying filter: ' + error.message);
+                showToast('Error applying filter: ' + error.message, 'error');
             }
         }
-
-        let currentSelectedFrames = [];
 
         function displayFilterResults(data) {
             const totalFrames = videoAnalysisData.video_info.total_frames;
@@ -1822,25 +3019,21 @@
             const removedCount = totalFrames - selectedCount;
             const removalPercentage = ((removedCount / totalFrames) * 100).toFixed(1);
 
-            // Store selected frames for download
             currentSelectedFrames = data.selected_frames;
 
             document.getElementById('selectedFrameCount').textContent = selectedCount;
             document.getElementById('removedFrameCount').textContent = `${removedCount} (${removalPercentage}%)`;
 
-            const summaryHtml = `
-                Original frames: ${totalFrames}<br>
-                Selected frames: ${selectedCount}<br>
-                Removed frames: ${removedCount} (${removalPercentage}%)<br>
-                Filter mode: ${data.filter_mode}
+            document.getElementById('frameSummary').innerHTML = `
+                <strong>Summary:</strong> ${totalFrames} original → ${selectedCount} selected<br>
+                <strong>Removed:</strong> ${removedCount} frames (${removalPercentage}%)<br>
+                <strong>Filter:</strong> ${data.filter_mode}
             `;
-            document.getElementById('frameSummary').innerHTML = summaryHtml;
 
-            // Display frame list (first 100 frames if too many)
             const framesToShow = data.selected_frames.slice(0, 100);
             let frameListHtml = framesToShow.join(', ');
             if (data.selected_frames.length > 100) {
-                frameListHtml += ` ... and ${data.selected_frames.length - 100} more frames`;
+                frameListHtml += ` ... and ${data.selected_frames.length - 100} more`;
             }
             document.getElementById('selectedFrameList').textContent = frameListHtml;
 
@@ -1849,21 +3042,19 @@
 
         async function downloadSelectedFrames() {
             if (!currentSelectedFrames || currentSelectedFrames.length === 0) {
-                alert('No frames selected. Please analyze a video and apply filters first.');
+                showToast('No frames selected', 'warning');
                 return;
             }
 
-            const videoFile = document.getElementById('videoFile').files[0];
+            const videoFile = fileInput.files[0];
             if (!videoFile) {
-                alert('Video file is no longer available. Please re-analyze the video.');
+                showToast('Video file not available. Please re-analyze.', 'error');
                 return;
             }
 
-            // Disable button and show loading
-            const downloadBtn = document.getElementById('downloadFramesBtn');
-            const originalText = downloadBtn.textContent;
-            downloadBtn.disabled = true;
-            downloadBtn.textContent = `Downloading ${currentSelectedFrames.length} frames...`;
+            const btn = document.getElementById('downloadFramesBtn');
+            btn.classList.add('btn-loading');
+            showToast(`Downloading ${currentSelectedFrames.length} frames...`, 'info');
 
             try {
                 const formData = new FormData();
@@ -1876,10 +3067,7 @@
                 });
 
                 if (response.ok) {
-                    // Get the blob from response
                     const blob = await response.blob();
-
-                    // Create a download link
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -1888,33 +3076,14 @@
                     a.click();
                     window.URL.revokeObjectURL(url);
                     document.body.removeChild(a);
-
-                    alert(`Successfully downloaded ${currentSelectedFrames.length} frames!`);
+                    showToast(`Downloaded ${currentSelectedFrames.length} frames!`, 'success');
                 } else {
-                    // Read response once and try to parse as JSON
-                    const contentType = response.headers.get('content-type');
-                    let errorMessage = 'Unknown error occurred';
-
-                    try {
-                        if (contentType && contentType.includes('application/json')) {
-                            const data = await response.json();
-                            errorMessage = data.message || 'Download failed';
-                        } else {
-                            const text = await response.text();
-                            errorMessage = text.substring(0, 200);
-                        }
-                    } catch (e) {
-                        errorMessage = `Failed to parse error: ${e.message}`;
-                    }
-
-                    alert('Download failed: ' + errorMessage);
+                    showToast('Download failed', 'error');
                 }
             } catch (error) {
-                alert('Error downloading frames: ' + error.message);
+                showToast('Error downloading frames: ' + error.message, 'error');
             } finally {
-                // Re-enable button
-                downloadBtn.disabled = false;
-                downloadBtn.textContent = originalText;
+                btn.classList.remove('btn-loading');
             }
         }
     </script>
